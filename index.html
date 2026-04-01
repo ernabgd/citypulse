@@ -453,13 +453,15 @@ img { display: block; max-width: 100%; }
 .trending-scroll {
   display: flex;
   gap: 12px;
-  padding: 2px 16px 4px;
+  padding: 2px 0 4px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 .trending-scroll::-webkit-scrollbar { display: none; }
+.trending-scroll::before,
+.trending-scroll::after { content: ''; min-width: 16px; display: block; flex-shrink: 0; }
 .trending-card {
   flex-shrink: 0;
   width: 200px;
@@ -1759,11 +1761,13 @@ img { display: block; max-width: 100%; }
 .explore-neighborhoods {
   display: flex;
   gap: 10px;
-  padding: 0 16px 4px;
+  padding: 0 0 4px;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .explore-neighborhoods::-webkit-scrollbar { display: none; }
+.explore-neighborhoods::before,
+.explore-neighborhoods::after { content: ''; min-width: 16px; display: block; flex-shrink: 0; }
 .explore-neighborhood-chip {
   flex-shrink: 0;
   padding: 10px 16px;
