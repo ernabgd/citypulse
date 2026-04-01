@@ -1722,8 +1722,7 @@ img { display: block; max-width: 100%; }
     <div class="compose-body">
       <div class="compose-title-label" style="padding:0;margin-bottom:8px">Select a tag</div>
       <div class="tag-selector" id="tag-selector"></div>
-      <input class="compose-title-input" id="compose-title" placeholder="What's happening?">
-      <textarea class="compose-textarea" id="compose-text" placeholder="Add details..."></textarea>
+      <textarea class="compose-textarea" id="compose-text" placeholder="What's happening around you?" style="min-height:160px;font-size:17px;font-weight:500"></textarea>
 
       <div class="refine-btn" id="refine-btn">Refine with AI ✨</div>
 
@@ -1780,8 +1779,8 @@ img { display: block; max-width: 100%; }
   <div class="screen" id="profile-screen">
     <div class="profile-header-bg" style="padding-top:var(--safe-top)"></div>
     <div class="profile-info">
-      <div class="profile-avatar">N</div>
-      <div class="profile-name" id="profile-name">Nico</div>
+      <div class="profile-avatar">E</div>
+      <div class="profile-name" id="profile-name">Erna</div>
       <div class="profile-rank" id="profile-rank">🟠 Community Pulse</div>
     </div>
     <div class="profile-stats">
@@ -1795,11 +1794,16 @@ img { display: block; max-width: 100%; }
         Dark Mode
         <div class="dark-toggle" id="dark-toggle"></div>
       </div>
-      <div class="menu-item"><div class="menu-icon" style="background:rgba(255,107,53,0.1)">📊</div>My Posts<span class="menu-item-right">›</span></div>
       <div class="menu-item"><div class="menu-icon" style="background:rgba(34,197,94,0.1)">🔖</div>Saved<span class="menu-item-right">›</span></div>
       <div class="menu-item"><div class="menu-icon" style="background:rgba(59,130,246,0.1)">⚙️</div>Settings<span class="menu-item-right">›</span></div>
       <button class="upgrade-btn" id="upgrade-btn">⭐ Upgrade to Business</button>
       <button class="logout-btn" id="logout-btn">Log Out</button>
+    </div>
+
+    <!-- My Posts section -->
+    <div style="padding: 0 16px 16px;">
+      <div style="font-size:16px;font-weight:700;color:var(--text);padding:16px 0 12px;border-top:8px solid var(--bg)">📊 My Posts</div>
+      <div id="my-posts-list"></div>
     </div>
   </div>
 
@@ -2201,7 +2205,9 @@ function renderFeedPosts(showSkeleton) {
 }
 
 function renderPostCard(post) {
-  const user = DEMO_USERS[post.user];
+  const user = post.isOwn
+    ? { name: 'Erna', initials: 'E', color: '#FF6B35', posts: 1, isBusiness: false }
+    : DEMO_USERS[post.user];
   const tc = TAG_CONFIG[post.tag];
   const rank = getRank(user.posts);
   const isBiz = post.isBusiness || user.isBusiness;
@@ -2266,7 +2272,9 @@ function openPost(postId) {
   const post = DEMO_POSTS.find(p => p.id === postId);
   if (!post) return;
 
-  const user = DEMO_USERS[post.user];
+  const user = post.isOwn
+    ? { name: 'Erna', initials: 'E', color: '#FF6B35', posts: 1, isBusiness: false }
+    : DEMO_USERS[post.user];
   const tc = TAG_CONFIG[post.tag];
   const rank = getRank(user.posts);
   const isBiz = post.isBusiness || user.isBusiness;
@@ -2381,12 +2389,33 @@ function initCompose() {
 
   // Submit
   $('#compose-submit').addEventListener('click', () => {
-    const title = $('#compose-title').value.trim();
     const text = $('#compose-text').value.trim();
-    if (!title && !text) { showToast('Write something first!'); return; }
+    if (!text) { showToast('Write something first!'); return; }
     if (!state.selectedTag) { showToast('Select a tag'); return; }
 
-    showToast('Posted! Your pulse is live.');
+    // Build the new post and add to the top of the feed
+    const photoPreview = $('#photo-preview-img');
+    const imageUrl = photoPreview && $('#photo-preview').style.display !== 'none' ? photoPreview.src : null;
+    const newPost = {
+      id: Date.now(),
+      user: 'own',
+      tag: state.selectedTag,
+      title: text.slice(0, 60),
+      body: text,
+      image: imageUrl,
+      loc: state.activeLocation,
+      lat: 41.6938, lng: 44.8015, // Tbilisi center fallback
+      distance: 0,
+      score: 1,
+      myVote: 1,
+      comments: [],
+      time: 'Just now',
+      isOwn: true,
+    };
+    DEMO_POSTS.unshift(newPost);
+    renderFeedPosts();
+
+    showToast('Posted! Your pulse is live. 🎉');
     showScreen('feed-screen', 'left');
     resetCompose();
   });
@@ -2436,7 +2465,6 @@ function initCompose() {
 }
 
 function resetCompose() {
-  $('#compose-title').value = '';
   $('#compose-text').value = '';
   $$('.tag-option').forEach(b => b.classList.remove('selected'));
   state.selectedTag = null;
@@ -2446,59 +2474,96 @@ function resetCompose() {
 }
 
 /* ============================================================
-   VOICE RECORDING (SIMULATED)
+   VOICE RECORDING — Real SpeechRecognition API
    ============================================================ */
 function initVoice() {
   const micBtn = $('#mic-btn');
   const status = $('#recording-status');
   const waveform = $('#waveform');
-  const timer = $('#rec-timer');
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    micBtn.title = 'Voice not supported in this browser';
+    micBtn.style.opacity = '0.4';
+    micBtn.addEventListener('click', () => showToast('Voice not supported in this browser'));
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  let finalTranscript = '';
+
+  recognition.onresult = (event) => {
+    let interim = '';
+    finalTranscript = '';
+    for (let i = 0; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      } else {
+        interim += event.results[i][0].transcript;
+      }
+    }
+    // Show live interim in textarea
+    const existing = $('#compose-text').dataset.preVoice || '';
+    $('#compose-text').value = existing + finalTranscript + interim;
+  };
+
+  recognition.onerror = (e) => {
+    stopRec();
+    if (e.error === 'not-allowed') {
+      showToast('Microphone permission denied');
+    } else {
+      showToast('Voice error: ' + e.error);
+    }
+  };
+
+  recognition.onend = () => {
+    if (state.isRecording) stopRec();
+  };
 
   function startRec() {
+    finalTranscript = '';
+    // Save existing text before voice input
+    $('#compose-text').dataset.preVoice = $('#compose-text').value;
     state.isRecording = true;
     micBtn.classList.add('recording');
     status.classList.add('active');
     waveform.classList.add('active');
-    state.recSeconds = 0;
-    timer.textContent = '0:00';
-    state.recTimer = setInterval(() => {
-      state.recSeconds++;
-      const m = Math.floor(state.recSeconds / 60);
-      const s = String(state.recSeconds % 60).padStart(2, '0');
-      timer.textContent = `${m}:${s}`;
-    }, 1000);
+    recognition.start();
   }
 
   function stopRec() {
+    if (!state.isRecording) return;
     state.isRecording = false;
     micBtn.classList.remove('recording');
     waveform.classList.remove('active');
-    clearInterval(state.recTimer);
+    recognition.stop();
 
-    status.innerHTML = 'Transcribing...';
-    setTimeout(() => {
-      status.classList.remove('active');
-      status.innerHTML = 'Recording... <span id="rec-timer">0:00</span>';
-      // Simulate transcription
-      const transcripts = [
-        'There is a large water leak near Vake Park. City workers have arrived but traffic is really bad in the area.',
-        'I just saw a stray dog near the children playground in Saburtalo. It looks friendly but might need help.',
-        'The new restaurant on Atoneli street has amazing Georgian food and the prices are very reasonable.'
-      ];
-      const text = transcripts[Math.floor(Math.random() * transcripts.length)];
-      $('#compose-text').value = text;
+    status.classList.remove('active');
+    // Commit final transcript to textarea
+    const existing = $('#compose-text').dataset.preVoice || '';
+    if (finalTranscript.trim()) {
+      const combined = (existing + ' ' + finalTranscript).trim();
+      $('#compose-text').value = combined;
       $('#compose-text').dispatchEvent(new Event('input'));
-      showToast('Voice transcribed!');
-    }, 1500);
+      showToast('Voice transcribed! ✨');
+    } else {
+      $('#compose-text').value = existing;
+      showToast('No speech detected — try again');
+    }
+    delete $('#compose-text').dataset.preVoice;
   }
 
-  // Mouse events
-  micBtn.addEventListener('mousedown', e => { e.preventDefault(); startRec(); });
+  // Hold to talk
+  micBtn.addEventListener('mousedown', e => { e.preventDefault(); if (!state.isRecording) startRec(); });
   micBtn.addEventListener('mouseup', () => { if (state.isRecording) stopRec(); });
   micBtn.addEventListener('mouseleave', () => { if (state.isRecording) stopRec(); });
 
-  // Touch events
-  micBtn.addEventListener('touchstart', e => { e.preventDefault(); startRec(); });
+  micBtn.addEventListener('touchstart', e => { e.preventDefault(); if (!state.isRecording) startRec(); });
   micBtn.addEventListener('touchend', e => { e.preventDefault(); if (state.isRecording) stopRec(); });
 }
 
@@ -2589,6 +2654,47 @@ function initProfile() {
   });
 }
 
+function renderMyPosts() {
+  const myPosts = DEMO_POSTS.filter(p => p.isOwn);
+  const container = $('#my-posts-list');
+  if (!container) return;
+
+  if (myPosts.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:32px 0;color:var(--text-tertiary);font-size:14px">You haven't posted yet.<br>Hit the + button to share something!</div>`;
+    return;
+  }
+
+  const TAG_CONFIG_LOCAL = {
+    alert: { emoji: '🚨', label: 'Alert' },
+    event: { emoji: '🎉', label: 'Event' },
+    food:  { emoji: '🍕', label: 'Food' },
+    general: { emoji: '💬', label: 'General' },
+    question: { emoji: '❓', label: 'Question' },
+    tip:   { emoji: '💡', label: 'Tip' },
+  };
+
+  container.innerHTML = myPosts.map(p => {
+    const tagInfo = TAG_CONFIG_LOCAL[p.tag] || { emoji: '💬', label: p.tag };
+    return `
+      <div style="padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openPost(${p.id})">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:600;color:var(--primary)">${tagInfo.emoji} ${tagInfo.label}</span>
+          <span style="font-size:12px;color:var(--text-tertiary)">${p.time || 'Just now'}</span>
+        </div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">${p.title || ''}</div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${p.body}</div>
+        <div style="display:flex;gap:12px;margin-top:8px;font-size:12px;color:var(--text-tertiary)">
+          <span>▲ ${p.score || 0}</span>
+          <span>💬 ${(p.comments || []).length}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Update stat count
+  $('#stat-posts').textContent = myPosts.length;
+}
+
 /* ============================================================
    NAVIGATION
    ============================================================ */
@@ -2598,6 +2704,7 @@ function initNav() {
     btn.addEventListener('click', () => {
       showScreen(btn.dataset.screen);
       if (btn.dataset.screen === 'notif-screen') renderNotifications();
+      if (btn.dataset.screen === 'profile-screen') renderMyPosts();
     });
   });
 
@@ -2616,6 +2723,7 @@ function initNav() {
   // Header avatar
   $('#header-avatar-btn').addEventListener('click', () => {
     showScreen('profile-screen');
+    renderMyPosts();
   });
 
   // Location chips
