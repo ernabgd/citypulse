@@ -11,6 +11,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
 /* ============================================================
    CSS CUSTOM PROPERTIES & THEMING
@@ -565,8 +567,87 @@ img { display: block; max-width: 100%; }
   font-weight: 600;
   padding: 2px 7px;
   border-radius: 6px;
+}
+.rank-newcomer  { background: rgba(134,239,172,0.18); color: #16a34a; }
+.rank-street    { background: rgba(251,191,36,0.18);  color: #b45309; }
+.rank-block     { background: rgba(147,197,253,0.18); color: #1d4ed8; }
+.rank-fairy     { background: rgba(216,180,254,0.18); color: #7e22ce; }
+.rank-guardian  { background: rgba(253,186,116,0.18); color: #c2410c; }
+.rank-legend    { background: rgba(252,211,77,0.22);  color: #92400e; border: 1px solid rgba(252,211,77,0.45); }
+
+/* Location pill on post cards */
+.post-location-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(255,107,53,0.08);
+  border: 1px solid rgba(255,107,53,0.2);
+  padding: 3px 9px;
+  border-radius: 12px;
+  margin-top: 6px;
+  cursor: pointer;
+}
+/* Leaflet map in post detail */
+.post-map-container {
+  width: 100%;
+  height: 190px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 10px 0;
+  border: 1px solid var(--border-strong);
+}
+/* Location panel in compose */
+.location-panel {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin-top: 8px;
+  border: 1px solid var(--border-strong);
+}
+.location-panel-row { display: flex; gap: 8px; align-items: center; }
+.location-text-input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+}
+.location-text-input:focus { border-color: var(--primary); }
+.location-gps-btn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(255,107,53,0.1);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+}
+.location-status { font-size: 12px; color: var(--text-secondary); margin-top: 6px; min-height: 16px; }
+.location-preview-pill {
+  display: none;
+  align-items: center;
+  gap: 6px;
   background: rgba(255,107,53,0.1);
   color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  margin-top: 8px;
+}
+.location-clear-btn {
+  background: none; border: none; font-size: 13px;
+  color: var(--text-tertiary); cursor: pointer; padding: 0 2px;
 }
 .post-verified-badge {
   font-size: 10px;
@@ -1769,6 +1850,17 @@ img { display: block; max-width: 100%; }
         <label class="tool-btn" for="photo-upload">📷 Photo</label>
         <input type="file" id="photo-upload" accept="image/*" style="display:none">
         <button class="tool-btn" id="location-btn">📍 Location</button>
+        <div class="location-panel" id="location-panel" style="display:none">
+          <div class="location-panel-row">
+            <input type="text" class="location-text-input" id="location-text-input" placeholder="Type a street or area...">
+            <button class="location-gps-btn" id="location-gps-btn">🎯 GPS</button>
+          </div>
+          <div class="location-status" id="location-status"></div>
+        </div>
+        <div class="location-preview-pill" id="location-preview-pill">
+          📍 <span id="location-preview-text"></span>
+          <button class="location-clear-btn" id="location-clear-btn">✕</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1895,11 +1987,12 @@ const TAG_CONFIG = {
 };
 
 const RANKS = [
-  { min: 0,   label: 'New Pulse',           icon: '⚪' },
-  { min: 1,   label: 'Community Pulse',     icon: '🟠' },
-  { min: 10,  label: 'Neighborhood Watch',  icon: '🟡' },
-  { min: 50,  label: 'City Guardian',       icon: '🔵' },
-  { min: 100, label: 'Local Legend',        icon: '🟣' },
+  { min: 0,   label: 'Newcomer',           icon: '🌱', colorKey: 'newcomer'  },
+  { min: 1,   label: 'Street Voice',       icon: '📢', colorKey: 'street'    },
+  { min: 10,  label: 'Block Watcher',      icon: '👀', colorKey: 'block'     },
+  { min: 30,  label: 'Neighborhood Fairy', icon: '🧚', colorKey: 'fairy'     },
+  { min: 75,  label: 'City Guardian',      icon: '🛡️', colorKey: 'guardian'  },
+  { min: 150, label: 'Urban Legend',       icon: '⚡', colorKey: 'legend'    },
 ];
 
 function getRank(postCount) {
@@ -2053,6 +2146,7 @@ let state = {
   isRecording: false,
   recTimer: null,
   recSeconds: 0,
+  composeLocationTag: null,
 };
 
 /* ============================================================
@@ -2240,7 +2334,7 @@ function renderPostCard(post) {
       <div class="post-user-info">
         <div class="post-username-row">
           <span class="post-username">${user.name}</span>
-          ${isBiz ? '<span class="post-verified-badge">✓ Verified</span>' : `<span class="post-rank-badge">${rank.icon} ${rank.label}</span>`}
+          ${isBiz ? '<span class="post-verified-badge">✓ Verified</span>' : `<span class="post-rank-badge rank-${rank.colorKey}">${rank.icon} ${rank.label}</span>`}
           ${isBiz ? '<span class="post-promoted-badge">Promoted</span>' : ''}
         </div>
         <div class="post-meta-row">
@@ -2253,6 +2347,7 @@ function renderPostCard(post) {
     <div class="post-title">${post.title}</div>
     <div class="post-body">${post.body}</div>
     ${post.image ? `<img class="post-image" src="${post.image}" alt="" loading="lazy">` : ''}
+    ${post.locationTag ? `<div class="post-location-pill" onclick="event.stopPropagation();openPost(${post.id})">📍 ${post.locationTag}</div>` : ''}
     <div class="post-actions" onclick="event.stopPropagation()">
       <div class="vote-group">
         <button class="vote-btn${voteState === 1 ? ' upvoted' : ''}" onclick="vote(${post.id},1)">▲</button>
@@ -2307,7 +2402,7 @@ function openPost(postId) {
         <div class="post-user-info">
           <div class="post-username-row">
             <span class="post-username">${user.name}</span>
-            ${isBiz ? '<span class="post-verified-badge">✓ Verified</span>' : `<span class="post-rank-badge">${rank.icon} ${rank.label}</span>`}
+            ${isBiz ? '<span class="post-verified-badge">✓ Verified</span>' : `<span class="post-rank-badge rank-${rank.colorKey}">${rank.icon} ${rank.label}</span>`}
           </div>
           <div class="post-meta-row">
             <span class="post-time">${post.time}</span>
@@ -2319,6 +2414,7 @@ function openPost(postId) {
       <div class="post-title" style="font-size:20px;margin-top:4px">${post.title}</div>
       <div class="post-body">${post.body}</div>
       ${post.image ? `<img class="post-image" src="${post.image}" alt="" loading="lazy" style="border-radius:var(--radius);margin:12px 0;width:100%">` : ''}
+      ${post.locationTag ? `<div class="post-location-pill" style="margin-bottom:6px">📍 ${post.locationTag}</div><div class="post-map-container" id="post-map-${post.id}"></div>` : ''}
       <div class="post-actions">
         <div class="vote-group">
           <button class="vote-btn" onclick="vote(${post.id},1)">▲</button>
@@ -2346,6 +2442,17 @@ function openPost(postId) {
 
   $('#detail-content').innerHTML = html;
   showScreen('detail-screen', 'right');
+
+  // Init Leaflet map if post has a location tag
+  if (post.locationTag && post.lat && post.lng && typeof L !== 'undefined') {
+    setTimeout(() => {
+      const mapEl = document.getElementById(`post-map-${post.id}`);
+      if (!mapEl || mapEl._leaflet_id) return;
+      const map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([post.lat, post.lng], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      L.marker([post.lat, post.lng]).addTo(map);
+    }, 80);
+  }
 
   // Store postId for comment submission
   $('#comment-bar').dataset.postId = postId;
@@ -2422,8 +2529,10 @@ function initCompose() {
       body: text,
       image: imageUrl,
       loc: state.activeLocation,
-      lat: 41.6938, lng: 44.8015, // Tbilisi center fallback
-      distance: 0,
+      lat: state.composeLocationTag ? state.composeLocationTag.lat : 41.6938,
+      lng: state.composeLocationTag ? state.composeLocationTag.lng : 44.8015,
+      locationTag: state.composeLocationTag ? state.composeLocationTag.label : null,
+      distance: state.composeLocationTag ? 'Here' : '0m',
       score: 1,
       myVote: 1,
       comments: [],
@@ -2485,10 +2594,67 @@ function initCompose() {
     }, 1200);
   });
 
-  // Location btn
+  // Location btn — toggle panel
   $('#location-btn').addEventListener('click', () => {
-    showToast('Location tagged: Tbilisi, Georgia');
+    const panel = $('#location-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   });
+
+  // GPS button
+  $('#location-gps-btn').addEventListener('click', async () => {
+    const status = $('#location-status');
+    if (!navigator.geolocation) { showToast('Geolocation not supported'); return; }
+    status.textContent = 'Getting your location...';
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        status.textContent = 'Looking up address...';
+        const label = await reverseGeocode(lat, lng);
+        if (label) { setComposeLocation(label, lat, lng); status.textContent = ''; }
+        else { status.textContent = 'Could not find address. Try typing it.'; }
+      },
+      (err) => { status.textContent = err.code === 1 ? 'Location permission denied.' : 'Could not get location.'; },
+      { timeout: 8000 }
+    );
+  });
+
+  // Typed location input
+  $('#location-text-input').addEventListener('input', function() {
+    const val = this.value.trim();
+    if (val.length > 2) setComposeLocation(val, 41.6938, 44.8015);
+    else clearComposeLocation();
+  });
+
+  // Clear location
+  $('#location-clear-btn').addEventListener('click', () => {
+    clearComposeLocation();
+    $('#location-text-input').value = '';
+    $('#location-status').textContent = '';
+    $('#location-panel').style.display = 'none';
+  });
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`);
+    const data = await res.json();
+    const a = data.address || {};
+    const parts = [a.road || a.pedestrian || a.footway, a.suburb || a.neighbourhood || a.quarter || a.city_district].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : (data.display_name || '').split(',').slice(0, 2).join(',').trim();
+  } catch (e) { return null; }
+}
+
+function setComposeLocation(label, lat, lng) {
+  state.composeLocationTag = { label, lat, lng };
+  $('#location-preview-text').textContent = label;
+  $('#location-preview-pill').style.display = 'inline-flex';
+  $('#location-panel').style.display = 'none';
+  showToast('📍 Location tagged!');
+}
+
+function clearComposeLocation() {
+  state.composeLocationTag = null;
+  $('#location-preview-pill').style.display = 'none';
 }
 
 function resetCompose() {
@@ -2498,6 +2664,9 @@ function resetCompose() {
   $('#photo-preview').style.display = 'none';
   $('#photo-upload').value = '';
   $('#refine-btn').classList.remove('visible');
+  clearComposeLocation();
+  $('#location-text-input').value = '';
+  $('#location-panel').style.display = 'none';
 }
 
 /* ============================================================
@@ -2718,8 +2887,14 @@ function renderMyPosts() {
     `;
   }).join('');
 
-  // Update stat count
+  // Update stat count + rank
   $('#stat-posts').textContent = myPosts.length;
+  const ownRank = getRank(myPosts.length);
+  const profileRankEl = $('#profile-rank');
+  if (profileRankEl) {
+    profileRankEl.textContent = `${ownRank.icon} ${ownRank.label}`;
+    profileRankEl.className = `profile-rank rank-${ownRank.colorKey}`;
+  }
 }
 
 /* ============================================================
