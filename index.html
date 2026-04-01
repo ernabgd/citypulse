@@ -110,13 +110,11 @@ img { display: block; max-width: 100%; }
 .screen.active {
   display: flex;
   flex-direction: column;
-  animation: screenFadeIn 0.3s ease;
+  animation: screenFadeIn 0.18s ease;
 }
-.screen.slide-in-right { animation: slideInRight 0.3s ease; }
-.screen.slide-in-left { animation: slideInLeft 0.3s ease; }
-@keyframes screenFadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
-@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+.screen.slide-up { animation: screenSlideUp 0.28s cubic-bezier(0.22,1,0.36,1); }
+@keyframes screenFadeIn { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
+@keyframes screenSlideUp { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ============================================================
    PASSWORD GATE
@@ -444,18 +442,18 @@ img { display: block; max-width: 100%; }
    TRENDING SECTION
    ============================================================ */
 .trending-section {
-  padding: 4px 0 8px;
+  padding: 8px 0 12px;
 }
 .trending-title {
   font-size: 17px;
   font-weight: 700;
-  padding: 0 16px 12px;
+  padding: 0 16px 10px;
   color: var(--text);
 }
 .trending-scroll {
   display: flex;
   gap: 12px;
-  padding: 0 16px;
+  padding: 2px 16px 4px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -ms-overflow-style: none;
@@ -1645,6 +1643,8 @@ img { display: block; max-width: 100%; }
 .explore-search:focus { border-color: var(--primary); }
 .explore-search-wrap {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 .explore-search-icon {
   position: absolute;
@@ -1653,15 +1653,24 @@ img { display: block; max-width: 100%; }
   transform: translateY(-50%);
   font-size: 18px;
   color: var(--text-tertiary);
+  pointer-events: none;
 }
-.explore-tags {
-  padding: 0 16px;
-  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 20px);
-}
-.explore-tags h3 {
-  font-size: 17px;
-  font-weight: 700;
-  margin-bottom: 12px;
+.explore-search-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--border-strong);
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .explore-tag-grid {
   display: grid;
@@ -1669,7 +1678,7 @@ img { display: block; max-width: 100%; }
   gap: 8px;
 }
 .explore-tag-card {
-  padding: 16px;
+  padding: 14px;
   border-radius: var(--radius);
   background: var(--card);
   border: 1px solid var(--border);
@@ -1677,11 +1686,117 @@ img { display: block; max-width: 100%; }
   align-items: center;
   gap: 10px;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 .explore-tag-card:active { transform: scale(0.97); }
-.explore-tag-emoji { font-size: 24px; }
+.explore-tag-emoji { font-size: 22px; }
 .explore-tag-name { font-size: 13px; font-weight: 700; color: var(--text); }
 .explore-tag-count { font-size: 11px; color: var(--text-tertiary); }
+.explore-city-post {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.explore-city-post:active { transform: scale(0.98); }
+.explore-city-post-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 6px;
+}
+.explore-city-post-body {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.explore-city-post-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  display: flex;
+  gap: 12px;
+}
+
+/* Feed tag filter pill */
+.feed-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--primary);
+  color: white;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.feed-tag-pill-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 0 0 2px;
+  line-height: 1;
+}
+
+/* Explore screen redesign */
+.explore-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 20px);
+}
+.explore-section-title {
+  font-size: 17px;
+  font-weight: 700;
+  padding: 16px 16px 10px;
+  color: var(--text);
+}
+.explore-neighborhoods {
+  display: flex;
+  gap: 10px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.explore-neighborhoods::-webkit-scrollbar { display: none; }
+.explore-neighborhood-chip {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 72px;
+}
+.explore-neighborhood-chip:active { transform: scale(0.96); }
+.explore-neighborhood-chip .chip-emoji { font-size: 22px; }
+.explore-neighborhood-chip .chip-name { font-size: 12px; }
+.explore-city-results {
+  padding: 0 16px;
+}
+.explore-city-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.explore-city-header .city-flag { font-size: 20px; }
 
 /* Utility */
 .hidden { display: none !important; }
@@ -1843,6 +1958,10 @@ img { display: block; max-width: 100%; }
       <div class="trending-scroll" id="trending-scroll"></div>
     </div>
 
+    <div id="feed-tag-pill-row" style="padding:0 16px 8px;display:none">
+      <span class="feed-tag-pill" id="feed-tag-pill" style="display:none"></span>
+    </div>
+
     <div class="feed-posts" id="feed-posts"></div>
   </div>
 
@@ -1918,12 +2037,25 @@ img { display: block; max-width: 100%; }
     <div class="explore-header">
       <div class="explore-search-wrap">
         <span class="explore-search-icon">🔍</span>
-        <input class="explore-search" placeholder="Search posts, tags, people..." id="explore-input">
+        <input class="explore-search" placeholder="Search city, neighborhood or topic…" id="explore-input">
+        <button class="explore-search-clear hidden" id="explore-clear">✕</button>
       </div>
     </div>
-    <div class="explore-tags">
-      <h3>Browse by Tag</h3>
-      <div class="explore-tag-grid" id="explore-tag-grid"></div>
+
+    <!-- Default state: neighborhoods + tags -->
+    <div class="explore-body" id="explore-default">
+      <div class="explore-section-title">Neighborhoods</div>
+      <div class="explore-neighborhoods" id="explore-neighborhoods"></div>
+
+      <div class="explore-section-title" style="padding-top:20px">Browse by Topic</div>
+      <div style="padding:0 16px">
+        <div class="explore-tag-grid" id="explore-tag-grid"></div>
+      </div>
+    </div>
+
+    <!-- Search results state -->
+    <div class="explore-body hidden" id="explore-results">
+      <div class="explore-city-results" id="explore-city-results"></div>
     </div>
   </div>
 
@@ -2190,6 +2322,7 @@ let state = {
   currentScreen: null,
   selectedTag: null,
   activeLocation: 'around',
+  activeTag: null,
   userVotes: {},
   isRecording: false,
   recTimer: null,
@@ -2215,13 +2348,14 @@ function showScreen(id, direction) {
   const mainScreens = ['feed-screen', 'explore-screen', 'notif-screen', 'profile-screen'];
 
   $$('.screen').forEach(s => {
-    s.classList.remove('active', 'slide-in-right', 'slide-in-left');
+    s.classList.remove('active', 'slide-up');
   });
 
   const screen = document.getElementById(id);
   screen.classList.add('active');
-  if (direction === 'right') screen.classList.add('slide-in-right');
-  else if (direction === 'left') screen.classList.add('slide-in-left');
+  if (id === 'compose-screen' || id === 'detail-screen') {
+    screen.classList.add('slide-up');
+  }
 
   state.currentScreen = id;
 
@@ -2357,11 +2491,51 @@ function renderFeedPosts(showSkeleton) {
     return;
   }
 
-  const filtered = state.activeLocation === 'around'
+  let posts = state.activeLocation === 'around'
     ? DEMO_POSTS
     : DEMO_POSTS.filter(p => p.loc === state.activeLocation);
 
-  container.innerHTML = filtered.map(post => renderPostCard(post)).join('');
+  // Tag filter — sort by distance (numeric meters first, then further)
+  if (state.activeTag) {
+    posts = posts.filter(p => p.tag === state.activeTag);
+    posts = [...posts].sort((a, b) => {
+      const toM = d => {
+        if (!d || d === 'Here') return 0;
+        if (d.endsWith('m')) return parseFloat(d);
+        if (d.endsWith('km')) return parseFloat(d) * 1000;
+        return 99999;
+      };
+      return toM(a.distance) - toM(b.distance);
+    });
+  }
+
+  // Update tag filter pill in feed header
+  const pill = $('#feed-tag-pill');
+  const pillRow = $('#feed-tag-pill-row');
+  if (pill && pillRow) {
+    if (state.activeTag) {
+      const tc = TAG_CONFIG[state.activeTag];
+      pill.innerHTML = `${tc.emoji} ${tc.label} <button class="feed-tag-pill-close" onclick="clearTagFilter()">✕</button>`;
+      pill.style.display = 'inline-flex';
+      pillRow.style.display = 'block';
+    } else {
+      pill.style.display = 'none';
+      pillRow.style.display = 'none';
+    }
+  }
+
+  container.innerHTML = posts.length
+    ? posts.map(post => renderPostCard(post)).join('')
+    : `<div style="text-align:center;padding:48px 16px;color:var(--text-tertiary)">
+        <div style="font-size:36px;margin-bottom:12px">${TAG_CONFIG[state.activeTag]?.emoji || '🔍'}</div>
+        <div style="font-weight:600;font-size:15px">No ${TAG_CONFIG[state.activeTag]?.label || ''} posts nearby</div>
+        <div style="font-size:13px;margin-top:6px">Be the first to post one!</div>
+       </div>`;
+}
+
+function clearTagFilter() {
+  state.activeTag = null;
+  renderFeedPosts(false);
 }
 
 function renderPostCard(post) {
@@ -2830,23 +3004,186 @@ function renderNotifications() {
 /* ============================================================
    EXPLORE
    ============================================================ */
+const NEIGHBORHOODS = [
+  { loc: 'around',     emoji: '📍', name: 'Around Me' },
+  { loc: 'vake',       emoji: '🌳', name: 'Vake' },
+  { loc: 'saburtalo',  emoji: '🏙️', name: 'Saburtalo' },
+  { loc: 'oldtown',    emoji: '🏛️', name: 'Old Town' },
+  { loc: 'vera',       emoji: '☕', name: 'Vera' },
+  { loc: 'mtatsminda', emoji: '⛰️', name: 'Mtatsminda' },
+];
+
+const CITY_POSTS = {
+  paris: {
+    flag: '🇫🇷', name: 'Paris',
+    posts: [
+      { tag: 'alert',  body: 'Metro line 4 suspended between Montrouge and Barbès — use line 13 instead.', votes: 112, time: '14m ago' },
+      { tag: 'event',  body: 'Free outdoor concert at Trocadéro tonight starting 8pm. Bring a blanket!', votes: 89, time: '1h ago' },
+      { tag: 'tip',    body: 'Vélib bikes are free for the first 30 min if you use the new app update.', votes: 204, time: '3h ago' },
+      { tag: 'food',   body: 'New ramen spot on Rue de Bretagne is incredible — queue moves fast.', votes: 67, time: '5h ago' },
+    ]
+  },
+  london: {
+    flag: '🇬🇧', name: 'London',
+    posts: [
+      { tag: 'alert',  body: 'Waterloo station exit 3 closed — engineering works until Sunday.', votes: 98, time: '22m ago' },
+      { tag: 'tip',    body: 'Elizabeth line direct to Heathrow is running again after last week\'s fault.', votes: 156, time: '2h ago' },
+      { tag: 'event',  body: 'Pop-up street food market in Bermondsey Square all weekend. 40+ stalls.', votes: 73, time: '4h ago' },
+      { tag: 'police', body: 'Heavy police presence on London Bridge, avoid if heading to Borough Market.', votes: 44, time: '35m ago' },
+    ]
+  },
+  barcelona: {
+    flag: '🇪🇸', name: 'Barcelona',
+    posts: [
+      { tag: 'tip',    body: 'Sagrada Família tickets sold out online — try the side entrance at 8am for walk-ins.', votes: 187, time: '1h ago' },
+      { tag: 'alert',  body: 'Pickpocket warning on Las Ramblas near La Boqueria this morning.', votes: 134, time: '45m ago' },
+      { tag: 'food',   body: 'Bar Cañete on Carrer de la Unió — best pa amb tomàquet in the city. Go at lunch.', votes: 91, time: '3h ago' },
+      { tag: 'event',  body: 'Free flamenco show at Palau de la Música courtyard tonight at 9pm.', votes: 62, time: '6h ago' },
+    ]
+  },
+  berlin: {
+    flag: '🇩🇪', name: 'Berlin',
+    posts: [
+      { tag: 'event',  body: 'Flea market at Mauerpark is massive this weekend — best vintage finds by 9am.', votes: 143, time: '2h ago' },
+      { tag: 'alert',  body: 'U8 delays between Hermannstraße and Neukölln due to signal fault.', votes: 77, time: '18m ago' },
+      { tag: 'tip',    body: 'Berghain queue is shortest on Sunday morning around 10am, believe it or not.', votes: 312, time: '5h ago' },
+      { tag: 'food',   body: 'Burgermeister under Schlesisches Tor bridge — still the best burger in Berlin.', votes: 88, time: '7h ago' },
+    ]
+  },
+  tbilisi: {
+    flag: '🇬🇪', name: 'Tbilisi',
+    posts: DEMO_POSTS.slice(0, 4).map(p => ({
+      tag: p.tag, body: p.body, votes: p.votes, time: p.time
+    }))
+  },
+  tokyo: {
+    flag: '🇯🇵', name: 'Tokyo',
+    posts: [
+      { tag: 'tip',    body: 'IC card readers now accept Apple Pay at all JR gates — no more fumbling for Suica.', votes: 441, time: '1h ago' },
+      { tag: 'food',   body: 'Tsukemen at Fuunji in Shinjuku — arrive 11am before the queue gets wild.', votes: 203, time: '3h ago' },
+      { tag: 'event',  body: 'Hanami season officially started in Yoyogi Park — blankets everywhere.', votes: 518, time: '8h ago' },
+      { tag: 'alert',  body: 'Shibuya scramble crossing barricaded for filming — use underground passage.', votes: 129, time: '30m ago' },
+    ]
+  },
+};
+
 function renderExplore() {
+  // Neighborhoods chips
+  const hood = $('#explore-neighborhoods');
+  if (hood) {
+    hood.innerHTML = NEIGHBORHOODS.map(n => `
+      <div class="explore-neighborhood-chip" onclick="filterByNeighborhood('${n.loc}')">
+        <span class="chip-emoji">${n.emoji}</span>
+        <span class="chip-name">${n.name}</span>
+      </div>
+    `).join('');
+  }
+
+  // Tag grid
   const grid = $('#explore-tag-grid');
   const counts = { alert: 24, police: 8, fire: 3, collision: 5, pet: 12, breakin: 2, protest: 6, offers: 18, general: 45, event: 15, food: 31, question: 22, tip: 19 };
-  grid.innerHTML = Object.entries(TAG_CONFIG).map(([key, val]) => `
-    <div class="explore-tag-card" onclick="filterByTag('${key}')">
-      <span class="explore-tag-emoji">${val.emoji}</span>
-      <div>
-        <div class="explore-tag-name">${val.label}</div>
-        <div class="explore-tag-count">${counts[key] || 0} posts</div>
+  if (grid) {
+    grid.innerHTML = Object.entries(TAG_CONFIG).map(([key, val]) => `
+      <div class="explore-tag-card" onclick="filterByTag('${key}')">
+        <span class="explore-tag-emoji">${val.emoji}</span>
+        <div>
+          <div class="explore-tag-name">${val.label}</div>
+          <div class="explore-tag-count">${counts[key] || 0} posts</div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `).join('');
+  }
+
+  // Search
+  const input = $('#explore-input');
+  const clearBtn = $('#explore-clear');
+  const defaultView = $('#explore-default');
+  const resultsView = $('#explore-results');
+  const resultsContainer = $('#explore-city-results');
+
+  if (!input) return;
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) {
+      defaultView.classList.remove('hidden');
+      resultsView.classList.add('hidden');
+      clearBtn.classList.add('hidden');
+      return;
+    }
+    clearBtn.classList.remove('hidden');
+    defaultView.classList.add('hidden');
+    resultsView.classList.remove('hidden');
+
+    // Match city
+    const cityKey = Object.keys(CITY_POSTS).find(k =>
+      k.includes(q) || CITY_POSTS[k].name.toLowerCase().includes(q)
+    );
+
+    if (cityKey) {
+      const city = CITY_POSTS[cityKey];
+      resultsContainer.innerHTML = `
+        <div class="explore-city-header">
+          <span class="city-flag">${city.flag}</span>
+          Trending in ${city.name}
+        </div>
+        ${city.posts.map(p => {
+          const tc = TAG_CONFIG[p.tag] || { emoji: '💬', label: p.tag };
+          return `<div class="explore-city-post">
+            <div class="explore-city-post-tag ${tc.class || ''}" style="color:${tagColor(p.tag)}">${tc.emoji} ${tc.label}</div>
+            <div class="explore-city-post-body">${p.body}</div>
+            <div class="explore-city-post-meta">
+              <span>🔥 ${p.votes}</span>
+              <span>${p.time}</span>
+            </div>
+          </div>`;
+        }).join('')}
+      `;
+    } else {
+      // No match — show empty state
+      resultsContainer.innerHTML = `
+        <div style="text-align:center;padding:48px 16px;color:var(--text-tertiary)">
+          <div style="font-size:36px;margin-bottom:12px">🌍</div>
+          <div style="font-weight:600;font-size:15px">No results for "${input.value}"</div>
+          <div style="font-size:13px;margin-top:6px">Try: Paris, London, Barcelona, Berlin, Tokyo</div>
+        </div>
+      `;
+    }
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  });
+}
+
+function tagColor(tag) {
+  const map = {
+    alert:'#EF4444', police:'#1E3A8A', fire:'#EA580C', collision:'#F97316',
+    pet:'#9333EA', breakin:'#991B1B', protest:'#CA8A04', offers:'#16A34A',
+    general:'#64748B', event:'#4F46E5', food:'#EA580C', question:'#D97706', tip:'#2563EB'
+  };
+  return map[tag] || 'var(--text-secondary)';
+}
+
+function filterByNeighborhood(loc) {
+  state.activeTag = null;
+  state.activeLocation = loc;
+  // Update chip UI
+  $$('.location-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.loc === loc);
+  });
+  showScreen('feed-screen');
+  renderFeedPosts(false);
+  $('#feed-screen').scrollTop = 0;
 }
 
 function filterByTag(tag) {
+  state.activeTag = tag;
   showScreen('feed-screen');
-  showToast(`Showing: ${TAG_CONFIG[tag].emoji} ${TAG_CONFIG[tag].label}`);
+  renderFeedPosts(false);
+  $('#feed-screen').scrollTop = 0;
 }
 
 /* ============================================================
