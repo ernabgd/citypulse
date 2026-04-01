@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="CityPulse">
   <meta name="theme-color" content="#FF6B35">
   <title>CityPulse</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1679,6 +1681,48 @@ img { display: block; max-width: 100%; }
 
 /* Utility */
 .hidden { display: none !important; }
+
+/* ---- PWA Install Banner ---- */
+#pwa-install-banner {
+  position: fixed;
+  bottom: 80px;
+  left: 12px;
+  right: 12px;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 9000;
+  animation: slideUp 0.3s ease;
+}
+#pwa-install-banner img {
+  width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
+}
+#pwa-install-banner .pwa-banner-text { flex: 1; }
+#pwa-install-banner .pwa-banner-title {
+  font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.2;
+}
+#pwa-install-banner .pwa-banner-sub {
+  font-size: 12px; color: var(--text-secondary); margin-top: 2px;
+}
+#pwa-install-banner .pwa-install-btn {
+  background: var(--primary); color: white;
+  border: none; border-radius: 10px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+#pwa-install-banner .pwa-dismiss-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-tertiary); font-size: 18px; padding: 4px; flex-shrink: 0;
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
   </style>
   <script>
     // Password gate — standalone, runs before everything else
@@ -3022,6 +3066,72 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* ============================================================
+   PWA — Service Worker + Install Prompt
+   ============================================================ */
+(function initPWA() {
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('CityPulse SW registered', reg.scope))
+        .catch(err => console.warn('SW registration failed', err));
+    });
+  }
+
+  // Install prompt (Android / Chrome)
+  let deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+
+    // Don't show if dismissed before
+    if (localStorage.getItem('cp_pwa_dismissed')) return;
+
+    // Show banner after a short delay
+    setTimeout(() => showInstallBanner(), 3000);
+  });
+
+  function showInstallBanner() {
+    if (document.getElementById('pwa-install-banner')) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'pwa-install-banner';
+    banner.innerHTML = `
+      <img src="icons/icon.svg" alt="CityPulse">
+      <div class="pwa-banner-text">
+        <div class="pwa-banner-title">Add CityPulse to Home Screen</div>
+        <div class="pwa-banner-sub">Works offline · No App Store needed</div>
+      </div>
+      <button class="pwa-install-btn" id="pwa-install-btn">Install</button>
+      <button class="pwa-dismiss-btn" id="pwa-dismiss-btn">✕</button>
+    `;
+    document.body.appendChild(banner);
+
+    document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+      banner.remove();
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') showToast('CityPulse installed! 🎉');
+      deferredPrompt = null;
+    });
+
+    document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
+      banner.remove();
+      localStorage.setItem('cp_pwa_dismissed', '1');
+    });
+  }
+
+  // App installed — hide banner if open
+  window.addEventListener('appinstalled', () => {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.remove();
+    showToast('CityPulse installed! 🎉');
+  });
+})();
 </script>
 </body>
 </html>
