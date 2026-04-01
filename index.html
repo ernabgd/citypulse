@@ -2327,6 +2327,7 @@ let state = {
   selectedTag: null,
   activeLocation: 'around',
   activeTag: null,
+  activeUser: null,
   userVotes: {},
   isRecording: false,
   recTimer: null,
@@ -2499,27 +2500,38 @@ function renderFeedPosts(showSkeleton) {
     ? DEMO_POSTS
     : DEMO_POSTS.filter(p => p.loc === state.activeLocation);
 
-  // Tag filter — sort by distance (numeric meters first, then further)
+  const distM = d => {
+    if (!d || d === 'Here') return 0;
+    if (d.endsWith('km')) return parseFloat(d) * 1000;
+    if (d.endsWith('m')) return parseFloat(d);
+    return 99999;
+  };
+
+  // Tag filter — sort closest first
   if (state.activeTag) {
     posts = posts.filter(p => p.tag === state.activeTag);
-    posts = [...posts].sort((a, b) => {
-      const toM = d => {
-        if (!d || d === 'Here') return 0;
-        if (d.endsWith('m')) return parseFloat(d);
-        if (d.endsWith('km')) return parseFloat(d) * 1000;
-        return 99999;
-      };
-      return toM(a.distance) - toM(b.distance);
+    posts = [...posts].sort((a, b) => distM(a.distance) - distM(b.distance));
+  }
+
+  // User filter — sort by most recent
+  if (state.activeUser) {
+    posts = posts.filter(p => {
+      const u = p.isOwn ? 'Erna' : (DEMO_USERS[p.user]?.name || '');
+      return u === state.activeUser;
     });
   }
 
-  // Update tag filter pill in feed header
+  // Filter pill
   const pill = $('#feed-tag-pill');
   const pillRow = $('#feed-tag-pill-row');
   if (pill && pillRow) {
     if (state.activeTag) {
       const tc = TAG_CONFIG[state.activeTag];
-      pill.innerHTML = `${tc.emoji} ${tc.label} <button class="feed-tag-pill-close" onclick="clearTagFilter()">✕</button>`;
+      pill.innerHTML = `${tc.emoji} ${tc.label} <button class="feed-tag-pill-close" onclick="clearFeedFilter()">✕</button>`;
+      pill.style.display = 'inline-flex';
+      pillRow.style.display = 'block';
+    } else if (state.activeUser) {
+      pill.innerHTML = `👤 ${state.activeUser} <button class="feed-tag-pill-close" onclick="clearFeedFilter()">✕</button>`;
       pill.style.display = 'inline-flex';
       pillRow.style.display = 'block';
     } else {
@@ -2528,17 +2540,20 @@ function renderFeedPosts(showSkeleton) {
     }
   }
 
+  const emptyTag = state.activeTag ? (TAG_CONFIG[state.activeTag]?.label || '') : '';
+  const emptyUser = state.activeUser || '';
   container.innerHTML = posts.length
     ? posts.map(post => renderPostCard(post)).join('')
     : `<div style="text-align:center;padding:48px 16px;color:var(--text-tertiary)">
-        <div style="font-size:36px;margin-bottom:12px">${TAG_CONFIG[state.activeTag]?.emoji || '🔍'}</div>
-        <div style="font-weight:600;font-size:15px">No ${TAG_CONFIG[state.activeTag]?.label || ''} posts nearby</div>
+        <div style="font-size:36px;margin-bottom:12px">${state.activeTag ? TAG_CONFIG[state.activeTag]?.emoji : '👤'}</div>
+        <div style="font-weight:600;font-size:15px">No ${emptyTag || emptyUser} posts found</div>
         <div style="font-size:13px;margin-top:6px">Be the first to post one!</div>
        </div>`;
 }
 
-function clearTagFilter() {
+function clearFeedFilter() {
   state.activeTag = null;
+  state.activeUser = null;
   renderFeedPosts(false);
 }
 
@@ -2554,12 +2569,12 @@ function renderPostCard(post) {
 
   return `<div class="post-card${isBiz ? ' business' : ''}" onclick="openPost(${post.id})">
     <div class="post-header">
-      <div class="post-avatar" style="background:linear-gradient(135deg,${user.color},${user.color}cc);${isBiz ? 'border-radius:10px' : ''}">
+      <div class="post-avatar" style="background:linear-gradient(135deg,${user.color},${user.color}cc);${isBiz ? 'border-radius:10px' : ''};cursor:pointer" onclick="event.stopPropagation();filterByUser('${user.name}',${post.isOwn ? 'true' : 'false'})">
         ${user.initials || user.name.charAt(0)}
       </div>
       <div class="post-user-info">
         <div class="post-username-row">
-          <span class="post-username">${user.name}</span>
+          <span class="post-username" style="cursor:pointer" onclick="event.stopPropagation();filterByUser('${user.name}',${post.isOwn ? 'true' : 'false'})">${user.name}</span>
           ${isBiz ? '<span class="post-verified-badge">✓ Verified</span>' : `<span class="post-rank-badge rank-${rank.colorKey}">${rank.icon} ${rank.label}</span>`}
           ${isBiz ? '<span class="post-promoted-badge">Promoted</span>' : ''}
         </div>
@@ -2569,11 +2584,11 @@ function renderPostCard(post) {
         </div>
       </div>
     </div>
-    <span class="post-tag ${tc.class}">${tc.emoji} ${tc.label}</span>
+    <span class="post-tag ${tc.class}" style="cursor:pointer" onclick="event.stopPropagation();filterByTag('${post.tag}')">${tc.emoji} ${tc.label}</span>
     <div class="post-title">${post.title}</div>
     <div class="post-body">${post.body}</div>
     ${post.image ? `<img class="post-image" src="${post.image}" alt="" loading="lazy">` : ''}
-    ${post.locationTag ? `<div class="post-location-pill" onclick="event.stopPropagation();openPost(${post.id})">📍 ${post.locationTag}</div>` : ''}
+    ${post.locationTag ? `<div class="post-location-pill" style="cursor:pointer" onclick="event.stopPropagation();filterByNeighborhood('${post.loc}')">📍 ${post.locationTag}</div>` : ''}
     <div class="post-actions" onclick="event.stopPropagation()">
       <div class="vote-group">
         <button class="vote-btn${voteState === 1 ? ' upvoted' : ''}" onclick="vote(${post.id},1)">▲</button>
@@ -2622,12 +2637,12 @@ function openPost(postId) {
   const html = `
     <div class="detail-post">
       <div class="post-header">
-        <div class="post-avatar" style="background:linear-gradient(135deg,${user.color},${user.color}cc);${isBiz ? 'border-radius:10px' : ''}">
+        <div class="post-avatar" style="background:linear-gradient(135deg,${user.color},${user.color}cc);${isBiz ? 'border-radius:10px' : ''};cursor:pointer" onclick="filterByUser('${user.name}',${post.isOwn ? 'true' : 'false'})">
           ${user.initials || user.name.charAt(0)}
         </div>
         <div class="post-user-info">
           <div class="post-username-row">
-            <span class="post-username">${user.name}</span>
+            <span class="post-username" style="cursor:pointer" onclick="filterByUser('${user.name}',${post.isOwn ? 'true' : 'false'})">${user.name}</span>
             ${isBiz ? '<span class="post-verified-badge">✓ Verified</span>' : `<span class="post-rank-badge rank-${rank.colorKey}">${rank.icon} ${rank.label}</span>`}
           </div>
           <div class="post-meta-row">
@@ -2636,16 +2651,16 @@ function openPost(postId) {
           </div>
         </div>
       </div>
-      <span class="post-tag ${tc.class}">${tc.emoji} ${tc.label}</span>
+      <span class="post-tag ${tc.class}" style="cursor:pointer" onclick="filterByTag('${post.tag}')">${tc.emoji} ${tc.label}</span>
       <div class="post-title" style="font-size:20px;margin-top:4px">${post.title}</div>
       <div class="post-body">${post.body}</div>
       ${post.image ? `<img class="post-image" src="${post.image}" alt="" loading="lazy" style="border-radius:var(--radius);margin:12px 0;width:100%">` : ''}
-      ${post.locationTag ? `<div class="post-location-pill" style="margin-bottom:6px">📍 ${post.locationTag}</div><div class="post-map-container" id="post-map-${post.id}"></div>` : ''}
+      ${post.locationTag ? `<div class="post-location-pill" style="margin-bottom:6px;cursor:pointer" onclick="filterByNeighborhood('${post.loc}')">📍 ${post.locationTag}</div><div class="post-map-container" id="post-map-${post.id}"></div>` : ''}
       <div class="post-actions">
         <div class="vote-group">
-          <button class="vote-btn" onclick="vote(${post.id},1)">▲</button>
-          <span class="vote-count">${post.votes}</span>
-          <button class="vote-btn" onclick="vote(${post.id},-1)">▼</button>
+          <button class="vote-btn${(state.userVotes[post.id]||0)===1?' upvoted':''}" onclick="vote(${post.id},1)">▲</button>
+          <span class="vote-count">${(post.votes||0) + (state.userVotes[post.id]||0)}</span>
+          <button class="vote-btn${(state.userVotes[post.id]||0)===-1?' downvoted':''}" onclick="vote(${post.id},-1)">▼</button>
         </div>
         <button class="action-btn">💬 ${post.comments}</button>
         <span class="action-spacer"></span>
@@ -2759,9 +2774,10 @@ function initCompose() {
       lng: state.composeLocationTag ? state.composeLocationTag.lng : 44.8015,
       locationTag: state.composeLocationTag ? state.composeLocationTag.label : null,
       distance: state.composeLocationTag ? 'Here' : '0m',
-      score: 1,
+      votes: 1,
       myVote: 1,
       comments: [],
+      commentData: [],
       time: 'Just now',
       isOwn: true,
     };
@@ -2844,11 +2860,24 @@ function initCompose() {
     );
   });
 
-  // Typed location input
+  // Typed location input — confirm on Enter (mobile "Done" key works too)
   $('#location-text-input').addEventListener('input', function() {
     const val = this.value.trim();
-    if (val.length > 2) setComposeLocation(val, 41.6938, 44.8015);
-    else clearComposeLocation();
+    const status = $('#location-status');
+    if (val.length > 0) {
+      status.textContent = 'Press Enter or tap Done to set';
+      status.style.color = 'var(--text-tertiary)';
+    } else {
+      clearComposeLocation();
+      status.textContent = '';
+    }
+  });
+  $('#location-text-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = this.value.trim();
+      if (val) setComposeLocation(val, 41.6938, 44.8015);
+    }
   });
 
   // Clear location
@@ -3173,6 +3202,7 @@ function tagColor(tag) {
 
 function filterByNeighborhood(loc) {
   state.activeTag = null;
+  state.activeUser = null;
   state.activeLocation = loc;
   // Update chip UI
   $$('.location-chip').forEach(c => {
@@ -3183,8 +3213,20 @@ function filterByNeighborhood(loc) {
   $('#feed-screen').scrollTop = 0;
 }
 
+function filterByUser(userName, isOwn) {
+  if (isOwn) { showScreen('profile-screen'); renderMyPosts(); return; }
+  state.activeTag = null;
+  state.activeLocation = 'around';
+  state.activeUser = userName;
+  $$('.location-chip').forEach(c => c.classList.toggle('active', c.dataset.loc === 'around'));
+  showScreen('feed-screen');
+  renderFeedPosts(false);
+  $('#feed-screen').scrollTop = 0;
+}
+
 function filterByTag(tag) {
   state.activeTag = tag;
+  state.activeUser = null;
   showScreen('feed-screen');
   renderFeedPosts(false);
   $('#feed-screen').scrollTop = 0;
