@@ -2431,11 +2431,20 @@ function initCompose() {
       isOwn: true,
     };
     DEMO_POSTS.unshift(newPost);
-    renderFeedPosts();
 
+    // Always switch to "Around Me" so user sees their post
+    state.activeLocation = 'around';
+    $$('.location-chip').forEach(c => c.classList.remove('active'));
+    const aroundChip = document.querySelector('.location-chip[data-loc="around"]');
+    if (aroundChip) aroundChip.classList.add('active');
+
+    renderFeedPosts();
     showToast('Posted! Your pulse is live. 🎉');
     showScreen('feed-screen', 'left');
     resetCompose();
+
+    // Scroll feed to top so post is visible
+    setTimeout(() => { $('#feed-screen').scrollTop = 0; }, 80);
   });
 
   // Photo upload
@@ -2765,15 +2774,16 @@ function initScrollChips() {
 
   feed.addEventListener('scroll', () => {
     const scrollY = feed.scrollTop;
-    const atTop = scrollY < 10;
-    const scrollingDown = scrollY > lastScrollY;
+    const delta = scrollY - lastScrollY;
 
-    if (atTop) {
+    if (scrollY < 60) {
+      // Always show at top
       header.classList.remove('chips-hidden');
-    } else if (scrollingDown) {
+    } else if (delta > 6) {
+      // Scrolling down meaningfully — hide chips
       header.classList.add('chips-hidden');
-    } else {
-      // scrolling up
+    } else if (delta < -6) {
+      // Scrolling up meaningfully — show chips
       header.classList.remove('chips-hidden');
     }
     lastScrollY = scrollY;
