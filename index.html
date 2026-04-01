@@ -325,13 +325,19 @@ img { display: block; max-width: 100%; }
   top: 0;
   z-index: 100;
   background: var(--bg);
-  padding: 12px 16px;
-  padding-top: calc(12px + var(--safe-top));
+  transition: box-shadow 0.2s ease;
+  padding: 0 16px;
+  padding-top: var(--safe-top);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.feed-header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  padding: 12px 0;
 }
 .feed-logo {
   font-size: 24px;
@@ -343,6 +349,14 @@ img { display: block; max-width: 100%; }
   display: flex;
   align-items: center;
   gap: 12px;
+}
+/* chips-hidden state — JS adds this class to feed-header */
+.feed-header.chips-hidden .location-chips {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  pointer-events: none;
 }
 .header-bell {
   position: relative;
@@ -394,10 +408,13 @@ img { display: block; max-width: 100%; }
 .location-chips {
   display: flex;
   gap: 8px;
-  padding: 4px 16px 12px;
+  padding: 4px 0 12px;
   overflow-x: auto;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  max-height: 52px;
+  opacity: 1;
+  transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.25s ease;
 }
 .location-chips::-webkit-scrollbar { display: none; }
 .location-chip {
@@ -1667,24 +1684,25 @@ img { display: block; max-width: 100%; }
 
   <!-- ========== FEED SCREEN ========== -->
   <div class="screen" id="feed-screen">
-    <div class="feed-header">
-      <div class="feed-logo">CityPulse</div>
-      <div class="feed-header-right">
-        <button class="header-bell" id="header-bell-btn">
-          <span>🔔</span>
-          <span class="bell-badge" id="bell-badge">3</span>
-        </button>
-        <div class="header-avatar" id="header-avatar-btn">N</div>
+    <div class="feed-header" id="feed-header">
+      <div class="feed-header-top">
+        <div class="feed-logo">CityPulse</div>
+        <div class="feed-header-right">
+          <button class="header-bell" id="header-bell-btn">
+            <span>🔔</span>
+            <span class="bell-badge" id="bell-badge">3</span>
+          </button>
+          <div class="header-avatar" id="header-avatar-btn">E</div>
+        </div>
       </div>
-    </div>
-
-    <div class="location-chips" id="location-chips">
-      <button class="location-chip active" data-loc="around">📍 Around Me</button>
-      <button class="location-chip" data-loc="vake">Vake</button>
-      <button class="location-chip" data-loc="saburtalo">Saburtalo</button>
-      <button class="location-chip" data-loc="oldtown">Old Town</button>
-      <button class="location-chip" data-loc="vera">Vera</button>
-      <button class="location-chip" data-loc="mtatsminda">Mtatsminda</button>
+      <div class="location-chips" id="location-chips">
+        <button class="location-chip active" data-loc="around">📍 Around Me</button>
+        <button class="location-chip" data-loc="vake">Vake</button>
+        <button class="location-chip" data-loc="saburtalo">Saburtalo</button>
+        <button class="location-chip" data-loc="oldtown">Old Town</button>
+        <button class="location-chip" data-loc="vera">Vera</button>
+        <button class="location-chip" data-loc="mtatsminda">Mtatsminda</button>
+      </div>
     </div>
 
     <div class="pull-indicator" id="pull-indicator">
@@ -2738,6 +2756,31 @@ function initNav() {
 }
 
 /* ============================================================
+   HIDE CHIPS ON SCROLL
+   ============================================================ */
+function initScrollChips() {
+  const feed = $('#feed-screen');
+  const header = $('#feed-header');
+  let lastScrollY = 0;
+
+  feed.addEventListener('scroll', () => {
+    const scrollY = feed.scrollTop;
+    const atTop = scrollY < 10;
+    const scrollingDown = scrollY > lastScrollY;
+
+    if (atTop) {
+      header.classList.remove('chips-hidden');
+    } else if (scrollingDown) {
+      header.classList.add('chips-hidden');
+    } else {
+      // scrolling up
+      header.classList.remove('chips-hidden');
+    }
+    lastScrollY = scrollY;
+  }, { passive: true });
+}
+
+/* ============================================================
    PULL TO REFRESH
    ============================================================ */
 function initPullToRefresh() {
@@ -2788,6 +2831,7 @@ function init() {
   initProfile();
   initNav();
   initPullToRefresh();
+  initScrollChips();
   renderExplore();
   renderNotifications();
 }
