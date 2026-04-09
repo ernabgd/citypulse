@@ -323,29 +323,17 @@ img { display: block; max-width: 100%; }
    FEED HEADER
    ============================================================ */
 .feed-header {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 50%;
-  width: min(100%, 430px);
-  transform: translateX(-50%);
   z-index: 100;
-  background: rgba(var(--bg-rgb, 245,246,248), 0.92);
+  background: var(--bg);
+  transition: box-shadow 0.2s ease;
   padding: 0 16px;
   padding-top: calc(4px + var(--safe-top));
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
-  opacity: 1;
-}
-.feed-header.hidden {
-  transform: translateX(-50%) translateY(-110%);
-  opacity: 0;
-  pointer-events: none;
-}
-[data-theme="dark"] .feed-header {
-  background: rgba(28,28,30, 0.92);
 }
 .feed-header-top {
   display: flex;
@@ -359,7 +347,55 @@ img { display: block; max-width: 100%; }
   color: var(--primary);
   letter-spacing: -0.5px;
 }
-/* chips-hidden state */
+.feed-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-bell {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 18px;
+  transition: all 0.2s ease;
+}
+.header-bell:active { transform: scale(0.92); }
+.bell-badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg);
+}
+.header-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.header-avatar:active { transform: scale(0.92); }
+/* chips-hidden state — JS adds this class to feed-header */
 .feed-header.chips-hidden .location-chips {
   max-height: 0 !important;
   opacity: 0 !important;
@@ -2116,6 +2152,13 @@ img { display: block; max-width: 100%; }
     <div class="feed-header" id="feed-header">
       <div class="feed-header-top">
         <div class="feed-logo">CityPulse</div>
+        <div class="feed-header-right">
+          <button class="header-bell" id="header-bell-btn">
+            <span>🔔</span>
+            <span class="bell-badge" id="bell-badge">3</span>
+          </button>
+          <div class="header-avatar" id="header-avatar-btn">E</div>
+        </div>
       </div>
       <div class="location-chips" id="location-chips">
         <button class="location-chip active" data-loc="around">📍 Around Me</button>
@@ -2127,7 +2170,6 @@ img { display: block; max-width: 100%; }
       </div>
     </div>
 
-    <div id="feed-header-spacer" style="height:0"></div>
     <div class="pull-indicator" id="pull-indicator">
       <span class="spinner"></span> Refreshing...
     </div>
@@ -2807,11 +2849,6 @@ function handleAuth() {
 function showFeed() {
   showScreen('feed-screen');
   $('#bottom-nav').style.display = 'flex';
-  // Re-sync header spacer now that feed-screen is visible (offsetHeight was 0 when initScrollChips ran)
-  requestAnimationFrame(() => {
-    const h = $('#feed-header'), s = $('#feed-header-spacer');
-    if (h && s) s.style.height = h.offsetHeight + 'px';
-  });
   renderTrending();
   renderFeedPosts();
 }
@@ -3845,26 +3882,18 @@ function initNav() {
 function initScrollChips() {
   const feed = $('#feed-screen');
   const header = $('#feed-header');
-  const spacer = $('#feed-header-spacer');
   let lastScrollY = 0;
-
-  // Set spacer height to match fixed header so content isn't hidden under it
-  function syncSpacer() {
-    if (spacer) spacer.style.height = header.offsetHeight + 'px';
-  }
-  syncSpacer();
-  window.addEventListener('resize', syncSpacer);
 
   feed.addEventListener('scroll', () => {
     const scrollY = feed.scrollTop;
     const delta = scrollY - lastScrollY;
 
-    if (scrollY < 10) {
-      header.classList.remove('hidden');
-    } else if (delta > 4) {
-      header.classList.add('hidden');
-    } else if (delta < -4) {
-      header.classList.remove('hidden');
+    if (scrollY < 60) {
+      header.classList.remove('chips-hidden');
+    } else if (delta > 6) {
+      header.classList.add('chips-hidden');
+    } else if (delta < -6) {
+      header.classList.remove('chips-hidden');
     }
     lastScrollY = scrollY;
   }, { passive: true });
