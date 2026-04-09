@@ -2807,6 +2807,11 @@ function handleAuth() {
 function showFeed() {
   showScreen('feed-screen');
   $('#bottom-nav').style.display = 'flex';
+  // Re-sync header spacer now that feed-screen is visible (offsetHeight was 0 when initScrollChips ran)
+  requestAnimationFrame(() => {
+    const h = $('#feed-header'), s = $('#feed-header-spacer');
+    if (h && s) s.style.height = h.offsetHeight + 'px';
+  });
   renderTrending();
   renderFeedPosts();
 }
