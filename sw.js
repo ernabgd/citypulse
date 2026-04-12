@@ -1,5 +1,5 @@
 /* CityPulse Service Worker — App Shell Cache */
-const CACHE_NAME = 'citypulse-v2';
+const CACHE_NAME = 'citypulse-v3';
 
 // Files to cache for offline app shell
 const APP_SHELL = [

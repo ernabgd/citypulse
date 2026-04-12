@@ -338,8 +338,7 @@ img { display: block; max-width: 100%; }
 .feed-header-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
+  padding: 8px 0;
 }
 .feed-logo {
   font-size: 24px;
@@ -347,54 +346,6 @@ img { display: block; max-width: 100%; }
   color: var(--primary);
   letter-spacing: -0.5px;
 }
-.feed-header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.header-bell {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--card);
-  border: 1px solid var(--border);
-  font-size: 18px;
-  transition: all 0.2s ease;
-}
-.header-bell:active { transform: scale(0.92); }
-.bell-badge {
-  position: absolute;
-  top: -2px; right: -2px;
-  width: 18px; height: 18px;
-  border-radius: 50%;
-  background: var(--danger);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--bg);
-}
-.header-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.header-avatar:active { transform: scale(0.92); }
 /* chips-hidden state — JS adds this class to feed-header */
 .feed-header.chips-hidden .location-chips {
   max-height: 0 !important;
@@ -2152,13 +2103,6 @@ img { display: block; max-width: 100%; }
     <div class="feed-header" id="feed-header">
       <div class="feed-header-top">
         <div class="feed-logo">CityPulse</div>
-        <div class="feed-header-right">
-          <button class="header-bell" id="header-bell-btn">
-            <span>🔔</span>
-            <span class="bell-badge" id="bell-badge">3</span>
-          </button>
-          <div class="header-avatar" id="header-avatar-btn">E</div>
-        </div>
       </div>
       <div class="location-chips" id="location-chips">
         <button class="location-chip active" data-loc="around">📍 Around Me</button>
