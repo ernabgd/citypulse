@@ -703,8 +703,8 @@ img { display: block; max-width: 100%; }
   display: flex;
   align-items: center;
   gap: 5px;
-  background: var(--bg);
-  border: 1.5px solid var(--border-strong);
+  background: var(--card);
+  border: 1.5px solid var(--border);
   border-radius: 20px;
   padding: 6px 11px;
   color: var(--text-secondary);
@@ -730,12 +730,9 @@ img { display: block; max-width: 100%; }
   flex-shrink: 0;
 }
 .share-btn:active { transform: scale(0.94); }
-/* confirm strip — alert/traffic cards only */
-.alert-card-stripe {
-  height: 3px;
-  background: linear-gradient(90deg, #ef4444, #f97316);
-  margin: -12px -12px 10px -12px;
-  border-radius: var(--radius) var(--radius) 0 0;
+/* alert card top border */
+.post-card.alert-card {
+  border-top: 3px solid #ef4444;
 }
 .confirm-strip {
   display: flex;
@@ -2800,14 +2797,48 @@ function showFeed() {
 /* ============================================================
    FEED RENDERING
    ============================================================ */
+const TRENDING_BY_LOC = {
+  around: [
+    { tag: 'alert',   headline: 'Water main break in Vake',        meta: '47 upvotes · 200m away',  bg: 'linear-gradient(135deg,#ef4444,#b91c1c)' },
+    { tag: 'event',   headline: 'Free jazz at Rike Park tonight',   meta: '62 upvotes · 2.1km away', bg: 'linear-gradient(135deg,#4f46e5,#7c3aed)' },
+    { tag: 'tip',     headline: 'Metro accepts contactless now',    meta: '93 upvotes · Citywide',   bg: 'linear-gradient(135deg,#2563eb,#0891b2)' },
+    { tag: 'protest', headline: 'Rally at Freedom Square',          meta: '55 upvotes · Rustaveli',  bg: 'linear-gradient(135deg,#ca8a04,#92400e)' },
+  ],
+  vake: [
+    { tag: 'alert',   headline: 'Water main break on Chavchavadze', meta: '47 upvotes · 200m away',  bg: 'linear-gradient(135deg,#ef4444,#b91c1c)' },
+    { tag: 'event',   headline: 'Outdoor cinema in Vake Park Sat',  meta: '88 upvotes · 400m away',  bg: 'linear-gradient(135deg,#4f46e5,#7c3aed)' },
+    { tag: 'general', headline: 'New dog park section now open',    meta: '83 upvotes · 500m away',  bg: 'linear-gradient(135deg,#0891b2,#0e7490)' },
+    { tag: 'tip',     headline: 'Free parking behind Narikala',     meta: '67 upvotes · Old Town',   bg: 'linear-gradient(135deg,#2563eb,#0891b2)' },
+  ],
+  saburtalo: [
+    { tag: 'alert',    headline: 'Power cut in Saburtalo — no ETA', meta: '39 upvotes · 2.1km away', bg: 'linear-gradient(135deg,#ef4444,#b91c1c)' },
+    { tag: 'food',     headline: 'New Turkish pide on Kostava',     meta: '41 upvotes · 1.4km away', bg: 'linear-gradient(135deg,#ea580c,#c2410c)' },
+    { tag: 'collision',headline: 'Lane blocked on Vazha-Pshavela', meta: '23 upvotes · 600m away',  bg: 'linear-gradient(135deg,#ca8a04,#92400e)' },
+    { tag: 'offers',   headline: 'Tbilisi Roast: buy 2 get 1 free',meta: '19 upvotes · 1.2km away', bg: 'linear-gradient(135deg,#FF6B35,#c2410c)' },
+  ],
+  oldtown: [
+    { tag: 'event',  headline: 'Free jazz at Rike Park tonight',   meta: '62 upvotes · 2.1km away', bg: 'linear-gradient(135deg,#4f46e5,#7c3aed)' },
+    { tag: 'tip',    headline: 'Free parking behind Narikala',     meta: '67 upvotes · Narikala',   bg: 'linear-gradient(135deg,#2563eb,#0891b2)' },
+    { tag: 'food',   headline: 'Underground wine bar on Shardeni', meta: '76 upvotes · 4.2km away', bg: 'linear-gradient(135deg,#ea580c,#c2410c)' },
+    { tag: 'police', headline: 'Checkpoint near Dry Bridge',       meta: '19 upvotes · 1.5km away', bg: 'linear-gradient(135deg,#374151,#1f2937)' },
+  ],
+  vera: [
+    { tag: 'pet',    headline: 'Missing orange tabby near park',  meta: '41 upvotes · 600m away',  bg: 'linear-gradient(135deg,#0891b2,#0e7490)' },
+    { tag: 'food',   headline: 'New khinkali spot on Barnovi St', meta: '34 upvotes · 800m away',  bg: 'linear-gradient(135deg,#ea580c,#c2410c)' },
+    { tag: 'breakin',headline: 'Car broken into on Barnovi St',   meta: '31 upvotes · 650m away',  bg: 'linear-gradient(135deg,#ef4444,#b91c1c)' },
+    { tag: 'event',  headline: 'Vere riverbank cleanup Sunday',   meta: '37 upvotes · 900m away',  bg: 'linear-gradient(135deg,#4f46e5,#7c3aed)' },
+  ],
+  mtatsminda: [
+    { tag: 'general', headline: 'Funicular back in service today',  meta: '58 upvotes · 4km away',   bg: 'linear-gradient(135deg,#0891b2,#0e7490)' },
+    { tag: 'tip',     headline: 'Best sunrise hike start point',    meta: '49 upvotes · 3.5km away', bg: 'linear-gradient(135deg,#2563eb,#0891b2)' },
+    { tag: 'general', headline: 'Beautiful sunset from Mtatsminda', meta: '72 upvotes · 5km away',   bg: 'linear-gradient(135deg,#4f46e5,#7c3aed)' },
+    { tag: 'police',  headline: 'Speed camera on descent road',     meta: '26 upvotes · 2.8km away', bg: 'linear-gradient(135deg,#374151,#1f2937)' },
+  ],
+};
+
 function renderTrending() {
   const container = $('#trending-scroll');
-  const trending = [
-    { tag: 'alert', headline: 'Water main break in Vake', meta: '47 upvotes · 200m away', bg: 'linear-gradient(135deg,#ef4444,#b91c1c)' },
-    { tag: 'event', headline: 'Free jazz at Rike Park tonight', meta: '62 upvotes · 2.1km away', bg: 'linear-gradient(135deg,#4f46e5,#7c3aed)' },
-    { tag: 'tip', headline: 'Metro accepts contactless now', meta: '93 upvotes · Citywide', bg: 'linear-gradient(135deg,#2563eb,#0891b2)' },
-    { tag: 'protest', headline: 'Rally at Freedom Square', meta: '55 upvotes · Rustaveli', bg: 'linear-gradient(135deg,#ca8a04,#92400e)' },
-  ];
+  const trending = TRENDING_BY_LOC[state.activeLocation] || TRENDING_BY_LOC.around;
 
   container.innerHTML = '<div style="min-width:6px;flex-shrink:0"></div>' + trending.map(t => {
     const tc = TAG_CONFIG[t.tag];
@@ -2913,7 +2944,7 @@ function renderPostCard(post) {
 
   const upSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
   const downSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>`;
-  const commentSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="4"/><path d="M3 17l3-3"/></svg>`;
+  const commentSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
   const shareSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>`;
   const eyeSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
   const videoSvg = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
@@ -2933,8 +2964,7 @@ function renderPostCard(post) {
       <button class="confirm-btn${confirmed ? ' confirmed' : ''}" onclick="confirmPost(${post.id})">${confirmed ? 'Confirmed ✓' : 'Confirm'}</button>
     </div>` : '';
 
-  return `<div class="post-card${isBiz ? ' business' : ''}" onclick="openPost(${post.id})">
-    ${isAlert ? '<div class="alert-card-stripe"></div>' : ''}
+  return `<div class="post-card${isBiz ? ' business' : ''}${isAlert ? ' alert-card' : ''}" onclick="openPost(${post.id})">
     <div class="post-header">
       <div class="post-avatar" style="background:linear-gradient(135deg,${user.color},${user.color}cc);${isBiz ? 'border-radius:10px' : ''};cursor:pointer" onclick="event.stopPropagation();filterByUser('${user.name}',${post.isOwn ? 'true' : 'false'})">
         ${user.initials || user.name.charAt(0)}
@@ -3816,6 +3846,7 @@ function initNav() {
       chip.classList.add('active');
       state.activeLocation = chip.dataset.loc;
       renderFeedPosts(true);
+      renderTrending();
     });
   });
 }
@@ -3871,7 +3902,6 @@ function initPullToRefresh() {
       setTimeout(() => {
         renderFeedPosts(true);
         $('#pull-indicator').classList.remove('visible');
-        showToast('Feed refreshed!');
       }, 800);
     }
     pulling = false;
