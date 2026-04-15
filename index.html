@@ -3139,7 +3139,7 @@ function renderPostCard(post) {
     </div>
     <span class="post-tag ${tc.class}" style="cursor:pointer" onclick="event.stopPropagation();filterByTag('${post.tag}')">${tc.emoji} ${tc.label}</span>
     <div class="post-title">${post.title}</div>
-    <div class="post-body">${post.body}</div>
+    ${post.body ? `<div class="post-body">${post.body}</div>` : ''}
     ${videoBlock}
     ${post.image ? `<img class="post-image" src="${post.image}" alt="" loading="lazy">` : ''}
     ${post.locationTag ? `<div class="post-location-pill" style="cursor:pointer" onclick="event.stopPropagation();filterByNeighborhood('${post.loc}')">📍 ${post.locationTag}</div>` : ''}
@@ -3217,7 +3217,7 @@ function openPost(postId) {
       </div>
       <span class="post-tag ${tc.class}" style="cursor:pointer" onclick="filterByTag('${post.tag}')">${tc.emoji} ${tc.label}</span>
       <div class="post-title" style="font-size:20px;margin-top:4px">${post.title}</div>
-      <div class="post-body">${post.body}</div>
+      ${post.body ? `<div class="post-body">${post.body}</div>` : ''}
       ${post.videoUrl ? `<video src="${post.videoUrl}" controls playsinline muted style="width:100%;border-radius:var(--radius);margin:12px 0;display:block;background:#1a1a1e;max-height:280px;object-fit:contain"></video>` : ''}
       ${post.image ? `<img class="post-image" src="${post.image}" alt="" loading="lazy" style="border-radius:var(--radius);margin:12px 0;width:100%">` : ''}
       ${post.locationTag ? `<div class="post-location-pill" style="margin-bottom:6px;cursor:pointer" onclick="filterByNeighborhood('${post.loc}')">📍 ${post.locationTag}</div><div class="post-map-container" id="post-map-${post.id}"></div>` : ''}
@@ -3324,12 +3324,24 @@ function initCompose() {
     // Build the new post and add to the top of the feed
     const photoPreview = $('#photo-preview-img');
     const imageUrl = photoPreview && $('#photo-preview').style.display !== 'none' ? photoPreview.src : null;
+
+    // Split text into title (first sentence) + body (remainder)
+    const firstBreak = text.search(/[.!?]\s/);
+    let postTitle, postBody;
+    if (firstBreak > 0 && firstBreak <= 90) {
+      postTitle = text.slice(0, firstBreak + 1).trim();
+      postBody = text.slice(firstBreak + 2).trim();
+    } else {
+      postTitle = text.length > 80 ? text.slice(0, 77) + '…' : text;
+      postBody = '';
+    }
+
     const newPost = {
       id: Date.now(),
       user: 'own',
       tag: state.selectedTag,
-      title: text.slice(0, 60),
-      body: text,
+      title: postTitle,
+      body: postBody,
       image: imageUrl,
       videoUrl: state.composeVideoUrl || null,
       videoDuration: state.composeVideoDuration || null,
@@ -3870,6 +3882,8 @@ function filterByUser(userName, isOwn) {
 function filterByTag(tag) {
   state.activeTag = tag;
   state.activeUser = null;
+  state.activeLocation = 'around';
+  $$('.location-chip').forEach(c => c.classList.toggle('active', c.dataset.loc === 'around'));
   showScreen('feed-screen');
   renderFeedPosts(false);
   $('#feed-screen').scrollTop = 0;
