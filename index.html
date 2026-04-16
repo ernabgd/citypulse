@@ -2163,7 +2163,7 @@ img { display: block; max-width: 100%; }
       </div>
 
       <div class="voice-section">
-        <div class="voice-label">Speak your post · auto-transcribed</div>
+        <div class="voice-label">Tap mic to record · tap again to stop</div>
         <button class="mic-btn" id="mic-btn">🎙</button>
         <div class="recording-status" id="recording-status">Recording... <span id="rec-timer">0:00</span></div>
         <div class="waveform" id="waveform">
@@ -3565,38 +3565,46 @@ function initVoice() {
   recognition.interimResults = true;
   recognition.lang = 'en-US';
 
-  let finalTranscript = '';
+  // Accumulated finals for the current session, plus a flag so onend knows to commit
+  let sessionFinal = '';
+  let stopping = false;
 
   recognition.onresult = (event) => {
+    // Rebuild from the full results list — the Web Speech API appends to event.results
+    sessionFinal = '';
     let interim = '';
-    finalTranscript = '';
     for (let i = 0; i < event.results.length; i++) {
       if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript;
+        sessionFinal += event.results[i][0].transcript;
       } else {
         interim += event.results[i][0].transcript;
       }
     }
-    // Show live interim in textarea
+    // Live preview while recording
     const existing = $('#compose-text').dataset.preVoice || '';
-    $('#compose-text').value = existing + finalTranscript + interim;
+    $('#compose-text').value = existing + sessionFinal + interim;
   };
 
   recognition.onerror = (e) => {
-    stopRec();
+    stopping = false;
+    _cancelRec();
     if (e.error === 'not-allowed') {
       showToast('Microphone permission denied');
-    } else {
+    } else if (e.error !== 'aborted') {
       showToast('Voice error: ' + e.error);
     }
   };
 
+  // onend fires AFTER all pending finals are delivered — safe place to commit
   recognition.onend = () => {
-    if (state.isRecording) stopRec();
+    if (!stopping && !state.isRecording) return;
+    stopping = false;
+    _commitTranscript();
   };
 
   function startRec() {
-    finalTranscript = '';
+    sessionFinal = '';
+    stopping = false;
     $('#compose-text').dataset.preVoice = $('#compose-text').value;
     state.isRecording = true;
     state.recSeconds = 0;
@@ -3613,20 +3621,23 @@ function initVoice() {
     }, 1000);
   }
 
-  function stopRec() {
+  function requestStop() {
     if (!state.isRecording) return;
     state.isRecording = false;
+    stopping = true;
     clearInterval(state.recTimer);
     state.recTimer = null;
     micBtn.classList.remove('recording');
     waveform.classList.remove('active');
-    recognition.stop();
-
     status.classList.remove('active');
-    // Commit final transcript to textarea
+    // Don't commit yet — wait for onend so all pending finals are delivered
+    recognition.stop();
+  }
+
+  function _commitTranscript() {
     const existing = $('#compose-text').dataset.preVoice || '';
-    if (finalTranscript.trim()) {
-      const combined = (existing + ' ' + finalTranscript).trim();
+    if (sessionFinal.trim()) {
+      const combined = (existing + ' ' + sessionFinal).trim();
       $('#compose-text').value = combined;
       $('#compose-text').dispatchEvent(new Event('input'));
       showToast('Voice transcribed! ✨');
@@ -3635,15 +3646,32 @@ function initVoice() {
       showToast('No speech detected — try again');
     }
     delete $('#compose-text').dataset.preVoice;
+    sessionFinal = '';
   }
 
-  // Hold to talk
-  micBtn.addEventListener('mousedown', e => { e.preventDefault(); if (!state.isRecording) startRec(); });
-  micBtn.addEventListener('mouseup', () => { if (state.isRecording) stopRec(); });
-  micBtn.addEventListener('mouseleave', () => { if (state.isRecording) stopRec(); });
+  function _cancelRec() {
+    state.isRecording = false;
+    stopping = false;
+    clearInterval(state.recTimer);
+    state.recTimer = null;
+    micBtn.classList.remove('recording');
+    waveform.classList.remove('active');
+    status.classList.remove('active');
+    const existing = $('#compose-text').dataset.preVoice || '';
+    $('#compose-text').value = existing;
+    delete $('#compose-text').dataset.preVoice;
+    sessionFinal = '';
+  }
 
-  micBtn.addEventListener('touchstart', e => { e.preventDefault(); if (!state.isRecording) startRec(); });
-  micBtn.addEventListener('touchend', e => { e.preventDefault(); if (state.isRecording) stopRec(); });
+  // Tap to start, tap again to stop (not hold-to-talk)
+  micBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (state.isRecording) {
+      requestStop();
+    } else {
+      startRec();
+    }
+  });
 }
 
 /* ============================================================
