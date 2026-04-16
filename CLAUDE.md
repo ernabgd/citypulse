@@ -1,74 +1,85 @@
 # CityPulse — Project Context
 
 ## What is this?
-CityPulse is a hyperlocal social feed app — like Citizen meets Nextdoor. Users see posts from people physically nearby, can upvote/downvote, post text + photos, use voice dictation, and get AI-assisted text refinement. Currently focused on Tbilisi, Georgia for an internal test with 10–30 users.
+Hyperlocal social feed PWA for Tbilisi, Georgia. Users see posts from nearby neighborhoods, upvote, comment, post text + photos. Like Citizen meets Nextdoor. Currently a polished static prototype used for demos and user testing.
 
 ## Owner
-Erna (ernabgd on GitHub). No coding experience — this is a vibecoding project.
+Erna / Nico (ernabgd on GitHub).
 
 ## Live URLs
 - **Vercel (production):** https://citypulse-10jc9jdhx-ernabgds-projects.vercel.app
-- **GitHub Pages:** https://ernabgd.github.io/citypulse
 - **GitHub repo:** https://github.com/ernabgd/citypulse.git
 
-## Current State
-Single `index.html` — a fully working static demo with fake data. No backend yet.
+---
 
-### What works in the demo:
-- Mobile-first phone UI with iOS-style layout
-- Location selector: "Around Me" + Tbilisi neighborhoods (Vake, Saburtalo, Old Town, Vera, Mtatsminda)
-- Feed with 8 fake Tbilisi posts (alerts, food, events, tips, questions)
-- Upvote/downvote with toggle logic
-- Distance badges on each post (200m, 1.4km, etc.)
-- Post composer with tag selector, photo attach, voice (simulated), AI refine (simulated)
-- Comment threads
-- Trending section (horizontal scroll cards)
-- Profile screen, Alerts/Notifications screen, Explore screen
-- Dark mode toggle
-- Smooth screen transitions
+## Architecture
 
-### What's NOT built yet (next phase):
-- Real backend (Supabase)
-- Real user auth (email + Google OAuth)
-- Real GPS-based geolocation
-- Real photo upload to cloud storage
-- Real voice dictation (Web Speech API)
-- Real AI text refinement (Claude API via Vercel serverless)
-- PWA manifest + service worker
+Single-file PWA. Everything — CSS, HTML, JS — lives in `index.html` (~4200 lines). No framework, no build step. `sw.js` is the service worker.
 
-## Planned Tech Stack
-- **Frontend:** Vanilla JS + HTML/CSS (no frameworks, no build tools — keep it simple for vibecoding)
-- **Backend:** Supabase (auth, Postgres DB, file storage, realtime)
-- **Hosting:** Vercel (connected to GitHub, auto-deploys on push)
-- **Voice:** Browser Web Speech API (SpeechRecognition), hold-to-talk UX like Citizen app
-- **AI Refine:** Vercel serverless function → Claude API (keeps API key server-side)
-- **Geo:** Browser Geolocation API + Haversine formula for distance
+**Deployed:** push to `main` → Vercel auto-deploys in ~30 seconds. No build command needed.
 
-## Design Decisions
-- **Accent color:** #FF6B35 (orange)
+---
+
+## Key globals (inside index.html)
+
+- `DEMO_POSTS` — 41 posts, IDs 1–41. Fields: `id, user, tag, title, body, image, votes, comments, commentData, time, distance, loc, confirmations, isBusiness, isOwn`
+- `TAG_CONFIG` — maps tag keys → `{ label, emoji, class }`. Tags: `alert, collision, breakin, police, protest, event, food, pet, question, tip, offers, general`
+- `TRENDING_BY_LOC` — object keyed by loc, 4 trending cards per neighborhood
+- `DEMO_USERS` — array of user objects with name, initials, color, role
+- `APP_PASSWORD` — gate password is `'feedc'`
+- `state.activeLocation` — active neighborhood: `'around' | 'vake' | 'saburtalo' | 'oldtown' | 'vera' | 'mtatsminda'`
+- `state.activeTag` — active tag filter, null = show all
+- `state.activeUser` — filter feed by user name, null = show all
+
+## Screens
+`password-gate` → `auth-screen` → `feed-screen` (main), `explore-screen`, `compose-screen` (slide-up), `detail-screen` (slide-up), `profile-screen`
+
+Navigation: `showScreen(id)`. Bottom nav shows on main screens, hides on compose/detail.
+
+---
+
+## Things fixed — do NOT revert
+
+- **Header:** `position: sticky` inside flex column. Do NOT change to `position: fixed` — breaks desktop layout.
+- **Alert stripe:** `border-top: 3px solid #ef4444` on `.post-card.alert-card`. No inner div needed.
+- **Service worker cache:** currently `citypulse-v3` in `sw.js`. Bump version (v4, v5…) only when `sw.js` itself changes — otherwise cached old versions serve on mobile.
+- **`filterByTag()`** resets `state.activeLocation` to `'around'` — explore tag clicks always show city-wide results.
+- **Compose submit:** splits text at first sentence boundary → `title` = first sentence, `body` = remainder. Prevents text doubling in card render.
+- **Card render:** `${post.body ? '<div class="post-body">...</div>' : ''}` — body div is conditional.
+
+---
+
+## Design tokens
+
+- **Accent:** `#FF6B35` (orange)
 - **Font:** Inter
-- **Style:** Clean, modern, mobile-first, iOS-feel
-- **Dark mode:** CSS custom properties, toggle in profile screen
-- **Feed modes:** "Around Me" (moves with GPS) + pinned neighborhood tabs at top
-- **Location tabs:** Hide on scroll down, show on scroll up
-- **Voice UX:** Hold-to-talk button (Citizen-style), live transcription shown in textarea
-- **AI Refine:** Gmail-style suggestion bar — non-intrusive, only shows when text looks messy
-- **Post tags:** Alert, Event, Food, General, Question, Tip (color-coded)
-- **Distance:** shown in meters under 1km, km above (e.g. "200m", "1.4km")
-- **Voting:** Anonymous (like feedc.com original concept)
+- **App frame:** `max-width: 430px; margin: 0 auto` on desktop. Dark navy body bg `#1a1a2e` outside the frame.
+- **Dark mode:** CSS custom properties on `:root` / `[data-theme="dark"]`. Toggle in profile screen, stored in `localStorage`.
+- **Primary CSS vars:** `--bg, --card, --border, --border-strong, --text, --text-secondary, --text-tertiary, --primary`
 
-## Known Bugs / TODOs
-- New posts submitted via compose don't always appear at top of feed
-- Profile screen doesn't show user's own posts
-- Location tabs sometimes disappear when scrolling
-- Voice and AI refine are simulated (not real yet)
+---
 
-## Monetization Direction (future)
-- Local business verification + advertising
-- Premium user features
-- Short-form video feed (separate tab, TBD)
+## Seed data style guide
 
-## Workflow
-- Edit files locally on Mac (Claude Code in /Users/nico/Documents/citypulse)
-- Claude makes changes → auto-pushed to GitHub → Vercel auto-deploys in ~30 seconds
-- Test live on phone via Vercel URL
+When adding posts, keep them realistic for Tbilisi:
+- Real streets: Chavchavadze Ave, Paliashvili St, Barnovi St, Kostava St, Agmashenebeli Ave, Vazha-Pshavela Ave, Kazbegi Ave, Nutsubidze, Tsereteli Ave, Rustaveli Ave
+- Real landmarks: Vake Park, Rike Park, Turtle Lake, Lisi Lake, Fabrika, Dezerter Bazaar, Freedom Square, Dry Bridge, Narikala, Marjanishvili
+- Georgian names: Nino, Giorgi, Tamta, Levan, Beka, Salome, Zviad, Mariam, Keti, Lasha, Dato, Irakli
+- Prices in lari (₾). Metro fare 0.50 ₾, khinkali ~0.80–1.20 ₾ each.
+- Utility companies: GWP (water), Telasi / Energo-Pro (electricity)
+
+---
+
+## What's NOT real (all simulated)
+
+- Auth: `localStorage.setItem('cp_logged_in', '1')` — no real accounts
+- Posts: in-memory array, gone on refresh
+- Votes/comments: `state` object, lost on refresh
+- Voice dictation: UI only, no Web Speech API hooked up
+- AI refine: reformats text locally (trim, capitalize, add period) — no API call
+- Push notifications: hardcoded array
+
+---
+
+## Monetization direction
+Local business verification + promoted posts (`isBusiness: true` renders gold border card). Premium user features. Short-form video tab (future).
