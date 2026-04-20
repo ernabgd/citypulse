@@ -1,0 +1,138 @@
+// data.jsx — CityPulse seed data. Tbilisi-realistic, warm tone.
+
+const CP_POSTS = [
+  {
+    id: 1, cat: 'event',
+    user: 'Nino K.',   initials: 'NK', role: 'Resident',
+    loc: 'Vake · Chavchavadze Ave',
+    time: '12 min',
+    title: 'Outdoor chess tables are back at Vake Park',
+    body: 'The city put the stone tables back near the main entrance. Saw four games already this morning — bring your own pieces.',
+    img: true,
+    imgLabel: 'photo · chess tables, vake park',
+    votes: 84, comments: 12, confirmations: 6,
+    pin: { x: 0.38, y: 0.42 },
+  },
+  {
+    id: 2, cat: 'food',
+    user: 'Giorgi T.',  initials: 'GT', role: 'Resident',
+    loc: 'Saburtalo · Kazbegi Ave',
+    time: '38 min',
+    title: 'New bakery on Kazbegi — Shotis Puri still warm at 10am',
+    body: 'Tiny place next to the pharmacy, opened last week. 1.50 ₾ for shoti. They also do a good khachapuri for 6 ₾.',
+    img: true,
+    imgLabel: 'photo · warm bread',
+    votes: 142, comments: 28, confirmations: 14,
+    pin: { x: 0.24, y: 0.62 },
+  },
+  {
+    id: 3, cat: 'pet',
+    user: 'Tamta L.',  initials: 'TL', role: 'Resident',
+    loc: 'Vera · Barnovi St',
+    time: '1 hr',
+    title: 'Lost orange cat — answers to Piko',
+    body: 'Our cat slipped out last night near Barnovi 17. Orange, small, has a blue collar. Please message if you see him.',
+    img: true,
+    imgLabel: 'photo · orange cat',
+    votes: 56, comments: 19, confirmations: 2,
+    pin: { x: 0.48, y: 0.34 },
+  },
+  {
+    id: 4, cat: 'tip',
+    user: 'Levan B.',  initials: 'LB', role: 'Resident',
+    loc: 'Old Town · Agmashenebeli',
+    time: '2 hr',
+    title: 'Metro card top-up machine at Marjanishvili is cash-only today',
+    body: 'Card reader broken. The one at Rustaveli still works with cards. Heads up if you\'re heading that way.',
+    img: false,
+    votes: 203, comments: 8, confirmations: 31,
+    pin: { x: 0.62, y: 0.28 },
+  },
+  {
+    id: 5, cat: 'alert',
+    user: 'Salome M.', initials: 'SM', role: 'Resident',
+    loc: 'Saburtalo · Nutsubidze',
+    time: '3 hr',
+    title: 'Water shutoff on Nutsubidze II until 6pm',
+    body: 'GWP crew working on the main. Fill bottles. Building 14 and 16 affected.',
+    img: false,
+    votes: 67, comments: 4, confirmations: 22,
+    pin: { x: 0.18, y: 0.52 },
+  },
+  {
+    id: 6, cat: 'question',
+    user: 'Beka A.',   initials: 'BA', role: 'Resident',
+    loc: 'Mtatsminda',
+    time: '4 hr',
+    title: 'Any reliable electrician for a rewiring job near Freedom Square?',
+    body: 'Need someone this week. Small apartment, mostly outlets and kitchen. Georgian or English.',
+    img: false,
+    votes: 23, comments: 31, confirmations: 0,
+    pin: { x: 0.55, y: 0.58 },
+  },
+  {
+    id: 7, cat: 'offers',
+    user: 'Mariam D.', initials: 'MD', role: 'Business', verified: true,
+    loc: 'Vake · Paliashvili St',
+    time: '5 hr',
+    title: '20% off all plants at Botanica this weekend',
+    body: 'Open 10–8, Saturday and Sunday. Pothos, monstera, all the indoor stuff.',
+    img: true,
+    imgLabel: 'photo · plant shop',
+    votes: 91, comments: 6, confirmations: 4,
+    pin: { x: 0.42, y: 0.46 },
+  },
+  {
+    id: 8, cat: 'traffic',
+    user: 'Zviad K.',  initials: 'ZK', role: 'Resident',
+    loc: 'Vake · Chavchavadze',
+    time: '6 hr',
+    title: 'Chavchavadze and Melikishvili intersection — construction closed a lane',
+    body: 'Coming from the university side, stay right. Backed up from Vake Park to the roundabout.',
+    img: false,
+    votes: 45, comments: 11, confirmations: 18,
+    pin: { x: 0.40, y: 0.40 },
+  },
+  {
+    id: 9, cat: 'event',
+    user: 'Keti R.',   initials: 'KR', role: 'Resident',
+    loc: 'Old Town · Fabrika',
+    time: '1 day',
+    title: 'Open-air cinema at Fabrika — Friday, free admission',
+    body: 'They\'re showing a Tengiz Abuladze film. 9pm start. Courtyard fills up early.',
+    img: true,
+    imgLabel: 'photo · fabrika courtyard',
+    votes: 168, comments: 22, confirmations: 12,
+    pin: { x: 0.65, y: 0.22 },
+  },
+  {
+    id: 10, cat: 'tip',
+    user: 'Lasha J.',  initials: 'LJ', role: 'Resident',
+    loc: 'Saburtalo',
+    time: '1 day',
+    title: 'The small produce market behind Dezerter has the best tomatoes this week',
+    body: 'Georgian grown, 4 ₾/kg. The outer stalls on the right. Ask for "adjika tomatoes."',
+    img: false,
+    votes: 78, comments: 9, confirmations: 5,
+    pin: { x: 0.28, y: 0.58 },
+  },
+];
+
+// Trending — one-liners pulled from top-voted posts.
+const CP_TRENDING = [
+  { title: 'Metro card top-up cash-only at Marjanishvili', loc: 'Old Town', votes: 203 },
+  { title: 'Open-air cinema at Fabrika this Friday',        loc: 'Old Town', votes: 168 },
+  { title: 'New bakery on Kazbegi — shoti at 10am',         loc: 'Saburtalo', votes: 142 },
+  { title: 'Chess tables back at Vake Park',                loc: 'Vake',     votes: 84 },
+];
+
+// Followed places — the "other cities/areas you care about" angle.
+const CP_FOLLOWED = [
+  { label: 'Batumi · Old Boulevard', posts: 12, distance: '378 km' },
+  { label: 'Kutaisi · Centre',       posts: 6,  distance: '231 km' },
+  { label: 'Signagi',                posts: 3,  distance: '113 km' },
+];
+
+window.CP_POSTS = CP_POSTS;
+window.CP_TRENDING = CP_TRENDING;
+window.CP_FOLLOWED = CP_FOLLOWED;

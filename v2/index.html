@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CityPulse — Native app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  input, textarea { font-family: inherit; }
+  /* scrollbar hide */
+  ::-webkit-scrollbar { display: none; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="tokens.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="map.jsx"></script>
+<script type="text/babel" src="primitives.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="compose-variants.jsx"></script>
+<script type="text/babel" src="compose-variants-2.jsx"></script>
+
+<script type="text/babel">
+// ── Tweakable defaults (editable via Tweaks toolbar toggle) ──
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "direction": "A",
+  "density": "comfy",
+  "cardStyle": "flat",
+  "mapStyle": "warm",
+  "accent": "oklch(62% 0.14 42)"
+}/*EDITMODE-END*/;
+
+// Phone frame wrapping a CityPulse screen. Uses IOSDevice chrome (dynamic island, home bar, status bar).
+function Phone({ label, children, dark = false, width = 390, height = 800 }) {
+  return (
+    <DCArtboard label={label} width={width} height={height}
+      style={{ borderRadius: 48, overflow: 'visible', boxShadow: '0 40px 80px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.08)' }}>
+      <div style={{
+        width, height, borderRadius: 48, overflow: 'hidden', position: 'relative',
+        background: '#000',
+      }}>
+        {/* status bar */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 40 }}>
+          <IOSStatusBar dark={dark}/>
+        </div>
+        {/* dynamic island */}
+        <div style={{
+          position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+          width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
+        }}/>
+        {/* content */}
+        <div style={{ height: '100%', overflow: 'hidden', position: 'relative' }}>
+          {children}
+        </div>
+        {/* home indicator */}
+        <div style={{
+          position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+          width: 139, height: 5, borderRadius: 100, background: 'rgba(0,0,0,0.3)', zIndex: 60,
+        }}/>
+      </div>
+    </DCArtboard>
+  );
+}
+
+function App() {
+  // Load persisted tweaks
+  const [tweaks, setTweaks] = React.useState(() => ({ ...TWEAK_DEFAULTS }));
+  const [editMode, setEditMode] = React.useState(false);
+  const [activeCat, setActiveCat] = React.useState('all');
+  const [activePin, setActivePin] = React.useState(null);
+  const [tab, setTab] = React.useState('home');
+
+  // Direction resolution — accent override if user picked one
+  const baseDir = window.CP_TOKENS.directions[tweaks.direction] || window.CP_TOKENS.directions.A;
+  const dir = React.useMemo(() => {
+    const accent = tweaks.accent || baseDir.accent;
+    return { ...baseDir, accent, font: window.CP_TOKENS.font.sans, displayFont: window.CP_TOKENS.font.display };
+  }, [baseDir, tweaks.accent]);
+
+  // Tweaks plumbing
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') setEditMode(true);
+      if (e.data.type === '__deactivate_edit_mode') setEditMode(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const setKey = (k, v) => {
+    setTweaks(t => ({ ...t, [k]: v }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+  };
+
+  const activeLoc = 'Vake · Chavchavadze Ave';
+
+  // A rendered phone screen is: the screen + the tab bar overlay.
+  const PhoneScreen = ({ screen }) => (
+    <>
+      <div style={{ height: '100%', overflowY: 'auto', background: dir.base }}>
+        {screen}
+      </div>
+      <TabBar active={tab} onTab={setTab} dir={dir} reportGlyph="signal"/>
+    </>
+  );
+
+  const feedScreen = (
+    <PhoneScreen screen={
+      <FeedScreen dir={dir} density={tweaks.density} cardStyle={tweaks.cardStyle}
+        activeCat={activeCat} setActiveCat={setActiveCat} activeLoc={activeLoc} openDetail={() => {}}/>
+    }/>
+  );
+  const mapScreen = (
+    <PhoneScreen screen={
+      <MapScreen dir={dir} mapStyle={tweaks.mapStyle} activePin={activePin} setActivePin={setActivePin}
+        activeLoc={activeLoc} density={tweaks.density} cardStyle={tweaks.cardStyle}/>
+    }/>
+  );
+  const composeScreen = (
+    <ComposeScreen dir={dir} closeCompose={() => {}} activeLoc={activeLoc}/>
+  );
+  const exploreScreen = (
+    <PhoneScreen screen={
+      <ExploreScreen dir={dir} density={tweaks.density} cardStyle={tweaks.cardStyle}
+        setTab={setTab} setActiveCat={setActiveCat}/>
+    }/>
+  );
+
+  return (
+    <>
+      <DesignCanvas>
+        {/* Title header */}
+        <div style={{ padding: '0 60px 24px', maxWidth: 1000 }}>
+          <div style={{
+            fontFamily: window.CP_TOKENS.font.display, fontSize: 40, fontWeight: 700, letterSpacing: -1, color: '#1a1815',
+          }}>CityPulse — Native app</div>
+          <div style={{ fontSize: 15, color: 'rgba(40,30,20,0.65)', marginTop: 6, lineHeight: 1.5, maxWidth: 700, textWrap: 'pretty' }}>
+            Hyperlocal social feed. Your city, around you, and places you follow.
+            Three visual directions · four hero screens · toggle <strong>Tweaks</strong> in the toolbar to swap direction, accent, density, map style and card style.
+          </div>
+          <div style={{
+            display: 'inline-flex', gap: 20, marginTop: 18,
+            padding: '14px 18px', borderRadius: 14,
+            background: '#fff', border: '1px solid rgba(0,0,0,0.06)',
+            fontFamily: window.CP_TOKENS.font.mono, fontSize: 12, color: 'rgba(40,30,20,0.75)',
+          }}>
+            <span><b style={{ color: '#1a1815' }}>Direction</b> {baseDir.name}</span>
+            <span>·</span>
+            <span><b style={{ color: '#1a1815' }}>Accent</b> {tweaks.accent || '—'}</span>
+            <span>·</span>
+            <span><b style={{ color: '#1a1815' }}>Density</b> {tweaks.density}</span>
+            <span>·</span>
+            <span><b style={{ color: '#1a1815' }}>Map</b> {tweaks.mapStyle}</span>
+            <span>·</span>
+            <span><b style={{ color: '#1a1815' }}>Card</b> {tweaks.cardStyle}</span>
+          </div>
+        </div>
+
+        {/* Row 1: hero screens — current direction */}
+        <DCSection title="Hero screens" subtitle={`${baseDir.name} — ${baseDir.subtitle}`}>
+          <Phone label="01 · Feed (Around me)">{feedScreen}</Phone>
+          <Phone label="02 · Map (primary surface)">{mapScreen}</Phone>
+
+          <Phone label="03 · Compose (voice + text unified)">{composeScreen}</Phone>
+          <Phone label="04 · Live broadcast" dark={true}>
+            <LiveComposeScreen dir={dir} closeCompose={()=>{}} activeLoc={activeLoc}/>
+          </Phone>
+          <Phone label="05 · Explore (with Pulse video)">{exploreScreen}</Phone>
+          <Phone label="06 · Places (Saved · Following · My pins)">
+            <>
+              <div style={{ height: '100%', overflowY: 'auto', background: dir.base }}>
+                <PlacesScreen dir={dir}/>
+              </div>
+              <TabBar active="places" onTab={()=>{}} dir={dir}/>
+            </>
+          </Phone>
+        </DCSection>
+
+        {/* Icon explorer — Post-button glyphs */}
+        <DCSection title="Post button · glyph options" subtitle="The center-tab signature icon. Same size & ring — only the glyph varies.">
+          <DCArtboard label="Candidates" width={920} height={220} style={{ padding: '32px 40px' }}>
+            <div style={{ display: 'flex', gap: 36, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <PostFab glyph="signal"    dir={dir} label="Signal"     sub="One arc each side of a dot — Citizen-inspired, cleaner"/>
+              <PostFab glyph="pinspeak"  dir={dir} label="Pin + voice" sub="Map pin with three voice dots — hyperlocal + spoken"/>
+              <PostFab glyph="megaphone" dir={dir} label="Megaphone"   sub="Friendly broadcast glyph, a bit playful"/>
+              <PostFab glyph="bubblepin" dir={dir} label="Speech bubble" sub="Familiar post metaphor, still social"/>
+              <PostFab glyph="pinplus"   dir={dir} label="Pin + plus"  sub="Current — clear but maybe too generic"/>
+              <PostFab glyph="plussquare" dir={dir} label="Rounded +"  sub="Most neutral, closest to iOS conventions"/>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        {/* Flow A — persistent voice bar */}
+        <DCSection title="Compose · Flow A — Persistent voice bar"
+          subtitle="Mic is always visible at the bottom. Tap anytime — before, during, or after typing — to add voice.">
+          <Phone label="A1 · Empty · voice bar visible">
+            <FlowA_Empty dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <Phone label="A2 · Listening · transcript fills the field">
+            <FlowA_Listening dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <Phone label="A3 · After · edit text or tap mic again">
+            <FlowA_Mixed dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+        </DCSection>
+
+        {/* Flow B — big mic hero */}
+        <DCSection title="Compose · Flow B — Big mic, voice-first"
+          subtitle="The mic is the hero. Text appears as you speak; you can switch to typing any time.">
+          <Phone label="B1 · Landing · mic is the page">
+            <FlowB_Hero dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <Phone label="B2 · Live transcribing + waveform">
+            <FlowB_Speaking dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <Phone label="B3 · Done · keep talking or edit">
+            <FlowB_EditContinue dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+        </DCSection>
+
+        {/* Flow C — chat-like chunks */}
+        <DCSection title="Compose · Flow C — Chat-like chunks"
+          subtitle="Like a messaging app. Each voice/typed chunk is a block you can edit or add to.">
+          <Phone label="C1 · Start · mic is the big button">
+            <FlowC_First dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <Phone label="C2 · Multiple chunks · mixed voice + text">
+            <FlowC_Chunks dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+        </DCSection>
+
+        {/* Flow D — Georgian-first editing */}
+        <DCSection title="Compose · Flow D — Fix words with one tap"
+          subtitle="Georgian speech-to-text isn't perfect. Uncertain words are marked with a wavy underline; tap any to swap, retype, or re-speak.">
+          <Phone label="D · Correcting a recognized word">
+            <FlowD_GeorgianEdit dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <DCArtboard label="Why this matters" width={380} height={800} style={{ padding: 28 }}>
+            <div style={{ fontFamily: window.CP_TOKENS.font.display, fontSize: 22, fontWeight: 700, color: '#1a1815', letterSpacing: -0.3 }}>
+              Georgian ASR drops 5–15% of words. Don't hide it — make fixing trivial.
+            </div>
+            <div style={{ fontSize: 13.5, color: 'rgba(40,30,20,0.7)', marginTop: 14, lineHeight: 1.6, textWrap: 'pretty' }}>
+              <strong>Wavy orange underline</strong> = low-confidence word. The user glances at the post and instantly sees what to check.
+              <br/><br/>
+              Tapping an uncertain word opens an inline picker with:<br/>
+              · 2–3 alternative candidates from the recognizer<br/>
+              · "Say it again" — re-records just that word<br/>
+              · "Type it" — pops keyboard at that position
+              <br/><br/>
+              <strong>Clean up all</strong> runs an LLM pass that fixes grammar, punctuation, and common Georgian/English code-switches — user still reviews before posting.
+              <br/><br/>
+              The same pattern handles mixed-language posts (Georgian + Russian + English are common in Tbilisi).
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        {/* Flow E — Audience scope */}
+        <DCSection title="Compose · Flow E — Choose who sees it"
+          subtitle="Three levels of reach: just this neighborhood, all of Tbilisi, or people who follow this neighborhood from anywhere.">
+          <Phone label="E1 · Scope banner on compose">
+            <FlowE_WithScope dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <Phone label="E2 · Pick audience sheet">
+            <FlowE_AudienceSheet dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <DCArtboard label="Audience scope · design rationale" width={380} height={800} style={{ padding: 28 }}>
+            <div style={{ fontFamily: window.CP_TOKENS.font.display, fontSize: 22, fontWeight: 700, color: '#1a1815', letterSpacing: -0.3 }}>
+              Reach is a first-class decision, not hidden settings.
+            </div>
+            <div style={{ fontSize: 13.5, color: 'rgba(40,30,20,0.7)', marginTop: 14, lineHeight: 1.6, textWrap: 'pretty' }}>
+              Nextdoor gets this wrong — everything defaults to "nearby" and citywide amplification is buried. Citizen has no scope control at all.
+              <br/><br/>
+              <strong>Three-ring glyph</strong> tells you the scope at a glance:<br/>
+              · 1 ring = neighborhood<br/>
+              · 2 rings = followers of neighborhood<br/>
+              · 3 rings = whole city
+              <br/><br/>
+              Category nudges the default — picking <strong>Alert</strong> or <strong>Protest</strong> auto-suggests citywide; <strong>Lost &amp; found</strong> stays neighborhood. User can always override.
+              <br/><br/>
+              <strong>Followers</strong> is the diaspora-friendly path — a post about Vake reaches everyone who cares about Vake, even if they moved to Batumi.
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        {/* Flow F / G — Draft + review */}
+        <DCSection title="Compose · Flow F + G — Drafts &amp; voice notes"
+          subtitle="On the go? Save as draft. Want your voice to carry the tone? Attach the audio clip alongside the transcript.">
+          <Phone label="F · Draft mode · auto-saves">
+            <FlowF_QuickDraft dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+          <Phone label="G · Voice note attached to post">
+            <FlowG_Review dir={dir} activeLoc={activeLoc}/>
+            <TabBar active="report" onTab={()=>{}} dir={dir} reportGlyph="signal"/>
+          </Phone>
+        </DCSection>
+
+        {/* Row 2: direction comparison — same screen (Feed) across A / B / C */}
+        <DCSection title="Visual directions" subtitle="Same screen · three accent / tone systems. Pick one in Tweaks.">
+          {['A', 'B', 'C'].map(k => {
+            const d = window.CP_TOKENS.directions[k];
+            const dd = { ...d, font: window.CP_TOKENS.font.sans, displayFont: window.CP_TOKENS.font.display };
+            return (
+              <Phone key={k} label={`${k} · ${d.name} — ${d.subtitle}`}>
+                <div style={{ height: '100%', overflowY: 'auto', background: d.base }}>
+                  <FeedScreen dir={dd} density={tweaks.density} cardStyle={tweaks.cardStyle}
+                    activeCat="all" setActiveCat={() => {}} activeLoc={activeLoc} openDetail={() => {}}/>
+                </div>
+                <TabBar active="home" onTab={() => {}} dir={dd}/>
+              </Phone>
+            );
+          })}
+        </DCSection>
+
+        {/* Row 3: Map palettes */}
+        <DCSection title="Map palettes" subtitle="Warm · Cool · Muted · Colorful. Switch via Tweaks.">
+          {['warm', 'cool', 'muted', 'colorful'].map(k => (
+            <Phone key={k} label={`Map · ${k}`}>
+              <div style={{ height: '100%', overflow: 'hidden', background: dir.base }}>
+                <MapScreen dir={dir} mapStyle={k} activePin={null} setActivePin={() => {}}
+                  activeLoc={activeLoc} density="compact" cardStyle="flat"/>
+              </div>
+              <TabBar active="explore" onTab={() => {}} dir={dir}/>
+            </Phone>
+          ))}
+        </DCSection>
+
+        {/* Row 4: notes */}
+        <DCSection title="Design notes" subtitle="Decisions worth calling out.">
+          <DCArtboard label="Why map + feed hybrid" width={360} height={380} style={{ padding: 24 }}>
+            <div style={{ fontFamily: window.CP_TOKENS.font.display, fontSize: 20, fontWeight: 700, color: '#1a1815', letterSpacing: -0.3 }}>
+              Google for your city, by real people
+            </div>
+            <div style={{ fontSize: 13.5, color: 'rgba(40,30,20,0.7)', marginTop: 10, lineHeight: 1.55, textWrap: 'pretty' }}>
+              Citizen is map-first but dark & negative. Nextdoor is feed-first but hyper-local to ZIP. <br/><br/>
+              CityPulse lets you zoom between <strong>Around me</strong> (hyperlocal), <strong>Explore</strong> (citywide), and <strong>Following</strong> (other places you care about) — a range that matches how Tbilisi actually flows between neighborhoods.
+            </div>
+          </DCArtboard>
+
+          <DCArtboard label="Why no emoji in feed" width={360} height={380} style={{ padding: 24 }}>
+            <div style={{ fontFamily: window.CP_TOKENS.font.display, fontSize: 20, fontWeight: 700, color: '#1a1815', letterSpacing: -0.3 }}>
+              Icons and dots, not emoji
+            </div>
+            <div style={{ fontSize: 13.5, color: 'rgba(40,30,20,0.7)', marginTop: 10, lineHeight: 1.55, textWrap: 'pretty' }}>
+              Category meaning is carried by a <strong>dot of color</strong> + label — readable, translates across languages, never looks like a group chat.
+              <br/><br/>
+              Emoji live in <strong>compose</strong> (picker) and <strong>reactions</strong> only, where fast recognition wins.
+            </div>
+          </DCArtboard>
+
+          <DCArtboard label="Light by default" width={360} height={380} style={{ padding: 24 }}>
+            <div style={{ fontFamily: window.CP_TOKENS.font.display, fontSize: 20, fontWeight: 700, color: '#1a1815', letterSpacing: -0.3 }}>
+              Daylight, not night shift
+            </div>
+            <div style={{ fontSize: 13.5, color: 'rgba(40,30,20,0.7)', marginTop: 10, lineHeight: 1.55, textWrap: 'pretty' }}>
+              Warm off-white background. Real dark mode available, but the app's identity is warm paper — a notice board, not a police scanner.
+              <br/><br/>
+              Alerts still earn a red stripe — they just don't set the whole tone.
+            </div>
+          </DCArtboard>
+
+          <DCArtboard label="Next" width={360} height={380} style={{ padding: 24 }}>
+            <div style={{ fontFamily: window.CP_TOKENS.font.display, fontSize: 20, fontWeight: 700, color: '#1a1815', letterSpacing: -0.3 }}>
+              What to try next
+            </div>
+            <ol style={{ fontSize: 13.5, color: 'rgba(40,30,20,0.7)', marginTop: 10, lineHeight: 1.7, paddingLeft: 18, textWrap: 'pretty' }}>
+              <li>Post detail + comments screen</li>
+              <li>Full Pulse video player (vertical feed)</li>
+              <li>Onboarding + location permission</li>
+              <li>Profile + business verification</li>
+              <li>Notifications</li>
+              <li>Georgian language pass</li>
+              <li>Android parity</li>
+            </ol>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      {/* Tweaks panel */}
+      {editMode && (
+        <div style={{
+          position: 'fixed', bottom: 20, right: 20, width: 300, zIndex: 9999,
+          background: '#fff', borderRadius: 16, padding: 18,
+          boxShadow: '0 20px 50px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06)',
+          fontFamily: window.CP_TOKENS.font.sans,
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1815', letterSpacing: -0.2, marginBottom: 14 }}>Tweaks</div>
+
+          <Label>Direction</Label>
+          <Seg options={[['A', 'Clay'], ['B', 'Civic'], ['C', 'Ink']]} value={tweaks.direction} onChange={v => setKey('direction', v)}/>
+
+          <Label>Accent</Label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {[
+              ['', 'Default'],
+              ['oklch(62% 0.14 42)', 'Clay'],
+              ['oklch(55% 0.11 195)', 'Teal'],
+              ['oklch(58% 0.18 25)', 'Red'],
+              ['oklch(60% 0.14 260)', 'Indigo'],
+              ['oklch(62% 0.13 140)', 'Moss'],
+            ].map(([v, l]) => (
+              <button key={l} onClick={() => setKey('accent', v)} style={{
+                padding: '6px 10px', borderRadius: 999, fontSize: 11, cursor: 'pointer',
+                background: tweaks.accent === v ? '#1a1815' : '#f5f3ee',
+                color: tweaks.accent === v ? '#fff' : '#1a1815',
+                border: '1px solid ' + (tweaks.accent === v ? '#1a1815' : 'rgba(0,0,0,0.06)'),
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}>
+                {v && <span style={{ width: 10, height: 10, borderRadius: '50%', background: v }}/>}
+                {l}
+              </button>
+            ))}
+          </div>
+
+          <Label>Density</Label>
+          <Seg options={[['compact', 'Compact'], ['comfy', 'Comfy'], ['spacious', 'Spacious']]} value={tweaks.density} onChange={v => setKey('density', v)}/>
+
+          <Label>Card style</Label>
+          <Seg options={[['flat', 'Flat'], ['bordered', 'Bordered'], ['shadow', 'Shadow']]} value={tweaks.cardStyle} onChange={v => setKey('cardStyle', v)}/>
+
+          <Label>Map style</Label>
+          <Seg options={[['warm', 'Warm'], ['cool', 'Cool'], ['muted', 'Muted'], ['colorful', 'Colorful']]} value={tweaks.mapStyle} onChange={v => setKey('mapStyle', v)}/>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Label({ children }) {
+  return <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 2 }}>{children}</div>;
+}
+function Seg({ options, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 4, marginBottom: 12, background: '#f5f3ee', padding: 3, borderRadius: 10 }}>
+      {options.map(([v, l]) => (
+        <button key={v} onClick={() => onChange(v)} style={{
+          flex: 1, padding: '6px 8px', borderRadius: 7, border: 'none', cursor: 'pointer',
+          background: value === v ? '#fff' : 'transparent',
+          color: value === v ? '#1a1815' : 'rgba(0,0,0,0.55)',
+          fontSize: 11.5, fontWeight: value === v ? 600 : 500,
+          boxShadow: value === v ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+        }}>{l}</button>
+      ))}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
